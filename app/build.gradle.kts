@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -60,6 +61,10 @@ dependencies {
     // sshj only declares BouncyCastle as a runtime dependency; we use it directly.
     implementation(libs.bouncycastle.prov)
     implementation(libs.bouncycastle.pkix)
+
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
