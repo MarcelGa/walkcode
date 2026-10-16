@@ -1,5 +1,7 @@
 * text=auto
 *.sh text eol=lf
+gradlew text eol=lf
+tools/host-config/walkcode.tmux.conf text eol=lf
 tools/testhost/fake-agent text eol=lf
 tools/testhost/Dockerfile text eol=lf
 *.bat text eol=crlf

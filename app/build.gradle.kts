@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(project(":terminal-view"))
 
     implementation(libs.sshj)
     // sshj only declares BouncyCastle as a runtime dependency; we use it directly.

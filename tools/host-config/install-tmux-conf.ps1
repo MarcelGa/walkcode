@@ -1,4 +1,6 @@
 # Install Walkcode tmux settings for psmux on Windows (what the app will do at host setup).
+# Also installs ~/.config/walkcode/shell-init.ps1; Walkcode starts session shells on Windows as
+#   pwsh -NoLogo -NoExit -File ~/.config/walkcode/shell-init.ps1
 # Usage: pwsh -File install-tmux-conf.ps1 -ConfigFile walkcode.tmux.conf
 param([Parameter(Mandatory)] [string] $ConfigFile)
 $ErrorActionPreference = 'Stop'
@@ -16,5 +18,7 @@ while ($kept.Count -gt 0 -and -not $kept[$kept.Count - 1].Trim()) { $kept.Remove
 $block = @('# Walkcode', $line)
 $out = if ($kept.Count) { @($kept) + '' + $block } else { $block }
 Set-Content $rc $out -Encoding utf8NoBOM
+# Shell init that re-enables Ctrl+C in sessions started over SSH (see walkcode-shell-init.ps1).
+Copy-Item (Join-Path $PSScriptRoot 'walkcode-shell-init.ps1') (Join-Path $dir 'shell-init.ps1') -Force
 if ((Get-Command psmux -ErrorAction SilentlyContinue) -and (psmux ls 2>$null)) { psmux source-file $target }
 'installed'

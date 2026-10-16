@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Spike 2, debug builds only. Exported so it can be launched with `adb shell am start`. -->
+        <activity
+            android:name=".spike.TerminalSpikeActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+    </application>
+</manifest>

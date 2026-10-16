@@ -21,3 +21,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "walkcode"
 include(":app")
+
+// Vendored Termux terminal libraries (Apache 2.0), see vendor/README.md.
+include(":terminal-emulator", ":terminal-view")
+project(":terminal-emulator").projectDir = file("vendor/terminal-emulator")
+project(":terminal-view").projectDir = file("vendor/terminal-view")
