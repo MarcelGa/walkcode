@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Simulated interactive CLI agent for Walkcode end-to-end tests.
+# Behaves like a real agent: sets the terminal title, shows a spinner while
+# "working", then rings the bell and waits for the next prompt.
+name="${FAKE_AGENT_NAME:-fake-agent}"
+title() { printf '\033]2;%s\007' "$1"; }
+
+title "$name"
+echo "$name started in $(pwd)"
+[[ $# -gt 0 ]] && echo "args: $*"
+echo "Type a prompt, or /exit to quit."
+
+frames='|/-\'
+while true; do
+  printf '\n> '
+  IFS= read -r line || exit 0
+  [[ "$line" == "/exit" ]] && exit 0
+  [[ -z "$line" ]] && continue
+  for i in $(seq 1 25); do
+    f="${frames:i%4:1}"
+    printf '\r%s working on: %s' "$f" "$line"
+    title "$f $name"
+    sleep 0.2
+  done
+  printf '\r\033[Kdone: %s\n' "$line"
+  title "$name"
+  printf 'Waiting for input.\a'
+done

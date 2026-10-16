@@ -1,0 +1,14 @@
+# Test host keys (never commit)
+tools/testhost/keys/
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab

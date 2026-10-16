@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walkcode — Mockup</title>
+<style>
+  :root{--bg:#0b0f14;--panel:#121820;--panel2:#0e141b;--line:#1e2733;
+        --fg:#e6edf3;--mut:#8b98a5;--accent:#3ddc84;--warn:#ffb020;--term:#0a0e13;
+        --blue:#6aa9ff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:#05080c;color:var(--fg);
+       font:14px/1.4 -apple-system,Roboto,"Segoe UI",sans-serif;padding:32px}
+  h1{font-size:18px;font-weight:600;margin:0 0 4px}
+  .sub{color:var(--mut);margin-bottom:24px}
+  .stage{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .phone{width:300px;background:var(--bg);border:1px solid var(--line);
+         border-radius:28px;padding:10px;box-shadow:0 12px 40px #0008}
+  .screen{background:var(--panel2);border-radius:20px;overflow:hidden;height:640px;
+          display:flex;flex-direction:column}
+  .status{display:flex;justify-content:space-between;padding:6px 14px;font-size:11px;
+          color:var(--mut)}
+  .bar{display:flex;align-items:center;justify-content:space-between;
+       padding:12px 14px;background:var(--panel);border-bottom:1px solid var(--line);
+       font-weight:600}
+  .bar .act{color:var(--accent);font-weight:600}
+  .bar .mut{color:var(--mut);font-weight:400}
+  .list{flex:1;overflow:auto;padding:8px}
+  .row{display:flex;align-items:center;gap:10px;padding:12px;border-radius:12px}
+  .row+.row{margin-top:4px}
+  .row:hover{background:#ffffff08}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .on{background:var(--accent)} .off{background:#4a5765} .idle{background:var(--warn)}
+  .row .t{flex:1;min-width:0}
+  .row .t b{display:block;font-weight:600}
+  .row .t span{color:var(--mut);font-size:12px;display:block;
+               overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .t span.path{color:var(--blue)}
+  .pill{font-size:11px;color:var(--mut);border:1px solid var(--line);
+        border-radius:999px;padding:3px 8px;white-space:nowrap}
+  .pill.hot{color:var(--warn);border-color:#4a3a12}
+  .sect{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;
+        padding:12px 14px 4px}
+  .pcard{margin:8px;padding:14px;border-radius:14px;background:var(--panel);
+         border:1px solid var(--line)}
+  .pcard b{font-size:15px}
+  .pcard .meta{color:var(--mut);font-size:12px;margin-top:4px}
+  .hd{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .badge{display:inline-flex;min-width:20px;height:20px;padding:0 6px;border-radius:10px;
+         background:var(--accent);color:#04120a;font-size:11px;font-weight:700;
+         align-items:center;justify-content:center;flex:none}
+  .badge.dim{background:#243040;color:var(--fg)}
+  .unread{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+  .hdr{padding:8px 14px 10px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .hdr .c{color:var(--mut);font-size:12px}
+  .hdr .c .p{color:var(--blue)}
+  .term{flex:1;background:var(--term);padding:12px;font:12.5px/1.5 "SF Mono",Consolas,monospace;
+        overflow:auto}
+  .term .p{color:var(--accent)} .term .d{color:var(--mut)}
+  .cursor{display:inline-block;width:8px;height:14px;background:var(--accent);
+          vertical-align:-2px;animation:b 1s steps(1) infinite}
+  @keyframes b{50%{opacity:0}}
+  .keys{display:flex;gap:6px;padding:8px;background:var(--panel);
+        border-top:1px solid var(--line);overflow:auto}
+  .key{flex:none;background:#1b232e;border:1px solid var(--line);border-radius:8px;
+       padding:8px 10px;font-size:12px}
+  .field{padding:10px 12px;border-radius:10px;background:var(--panel);margin:6px 0;
+         display:flex;justify-content:space-between;gap:12px}
+  .field span{color:var(--mut)} .field b{font-weight:500}
+  .field .v{color:var(--blue);font-weight:500}
+  .btn{margin:14px;background:var(--accent);color:#04120a;border-radius:12px;
+       text-align:center;padding:12px;font-weight:700}
+  .ghost{background:#121820;border:1px dashed #2a3644;color:var(--accent)}
+  .nav{display:flex;border-top:1px solid var(--line);background:var(--panel)}
+  .nav div{flex:1;text-align:center;padding:10px;font-size:12px;color:var(--mut)}
+  .nav div.sel{color:var(--accent);font-weight:600}
+  .notif{padding:12px;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+  .notif+.notif{margin-top:10px}
+  .notif .top{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .notif .app{font-weight:600;margin:6px 0 2px}
+  .notif .msg{color:var(--fg)}
+  .pad{padding:10px}
+</style>
+</head>
+<body>
+  <h1>Walkcode — clickable mockup v3</h1>
+  <div class="sub">Projects → Workspaces → Sessions, plus Hosts. Static; hover states only.</div>
+
+  <div class="stage">
+
+    <!-- Projects -->
+    <figure class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
+        <div class="bar"><span>Projects</span><span class="act">+</span></div>
+        <div class="list">
+          <div class="pcard">
+            <div class="hd"><b>Personal</b><span class="badge">1</span></div>
+            <div class="meta">1 workspace · hermes · home-server</div>
+          </div>
+          <div class="pcard">
+            <div class="hd"><b>Work</b><span class="badge">2</span></div>
+            <div class="meta">3 workspaces · claude, opencode · 2 hosts</div>
+          </div>
+        </div>
+        <div class="nav"><div class="sel">Projects &nbsp;<span class="badge">3</span></div><div>Hosts</div></div>
+      </div>
+    </figure>
+
+    <!-- Project detail -->
+    <figure class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
+        <div class="bar"><span class="mut">← Work</span><span class="act">+ &nbsp; ⋮</span></div>
+        <div class="list">
+          <div class="row"><i class="dot on"></i>
+            <div class="t"><b>TollBff</b><span>home-server · claude · 2 sessions</span>
+              <span class="path">~/src/tollbff</span></div>
+            <span class="badge">2</span></div>
+          <div class="row"><i class="dot off"></i>
+            <div class="t"><b>DMBff</b><span>home-server · claude · no sessions</span>
+              <span class="path">~/src/dmbff</span></div></div>
+          <div class="row"><i class="dot on"></i>
+            <div class="t"><b>IaC &amp; GW</b><span>build-box · opencode · 1 session</span>
+              <span class="path">~/infra/gw</span></div>
+            <span class="unread"></span></div>
+        </div>
+      </div>
+    </figure>
+
+    <!-- Workspace sessions -->
+    <figure class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
+        <div class="bar"><span class="mut">← Work / TollBff</span><span class="act">+ &nbsp; ⋮</span></div>
+        <div class="hdr"><div class="c">home-server · <span class="p">~/src/tollbff</span> · claude</div></div>
+        <div class="list">
+          <div class="row"><i class="dot on"></i>
+            <div class="t"><b>#1</b><span>active · quiet 3s · 2 new</span></div>
+            <span class="unread"></span>
+            <span class="pill hot">🔔</span></div>
+          <div class="row"><i class="dot idle"></i>
+            <div class="t"><b>#2</b><span>quiet 42s · may be waiting</span></div>
+            <span class="pill hot">🔔</span></div>
+          <div class="row"><i class="dot off"></i>
+            <div class="t"><b>#3</b><span>stopped</span></div>
+            <span class="pill">▶</span></div>
+        </div>
+        <div class="btn ghost">+ New session</div>
+      </div>
+    </figure>
+
+    <!-- Hosts -->
+    <figure class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
+        <div class="bar"><span>Hosts</span><span class="act">+</span></div>
+        <div class="list">
+          <div class="row"><i class="dot on"></i><div class="t">
+            <b>home-server</b><span>tailscale · 100.84.2.11 · 3 workspaces</span></div></div>
+          <div class="row"><i class="dot on"></i><div class="t">
+            <b>dev-laptop</b><span>lan · dev.local · 1 workspace</span></div></div>
+          <div class="row"><i class="dot off"></i><div class="t">
+            <b>build-box</b><span>tailscale · offline</span></div></div>
+          <div class="sect">Host keys</div>
+          <div class="row"><div class="t"><span>Ed25519 · generated on device</span></div>
+            <span class="pill">Copy pubkey</span></div>
+        </div>
+        <div class="nav"><div>Projects</div><div class="sel">Hosts</div></div>
+      </div>
+    </figure>
+
+    <!-- Workspace editor -->
+    <figure class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
+        <div class="bar"><span class="mut">← New workspace</span><span></span></div>
+        <div class="pad">
+          <div class="field"><span>Name</span><b>TollBff</b></div>
+          <div class="field"><span>Project</span><b>Work</b></div>
+          <div class="field"><span>Host</span><b>home-server ▾</b></div>
+          <div class="field"><span>Directory</span><span class="v">~/src/tollbff</span></div>
+          <div class="field"><span>Agent</span><b>claude ▾</b></div>
+          <div class="field"><span>Args</span><b>—</b></div>
+        </div>
+        <div class="btn">Save</div>
+      </div>
+    </figure>
+
+    <!-- Terminal -->
+    <figure class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
+        <div class="bar"><span class="mut">← TollBff / #1</span><span class="act">⋮</span></div>
+        <div class="hdr"><div class="c">home-server · <span class="p">~/src/tollbff</span> · claude</div></div>
+        <div class="term">
+          <div><span class="p">$</span> claude</div>
+          <div>&nbsp;</div>
+          <div>&gt; refactor the auth module</div>
+          <div class="d">● Reading src/auth.ts …</div>
+          <div class="d">● Waiting for approval?</div>
+          <div>&nbsp;</div>
+          <div><span class="p">❯</span> <span class="cursor"></span></div>
+        </div>
+        <div class="keys">
+          <div class="key">^C</div><div class="key">Esc</div><div class="key">Tab</div>
+          <div class="key">←</div><div class="key">↑</div><div class="key">↓</div>
+          <div class="key">→</div><div class="key">⏎</div>
+        </div>
+      </div>
+    </figure>
+
+    <!-- Notifications -->
+    <figure class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
+        <div class="pad">
+          <div class="notif">
+            <div class="top">Agent alerts</div>
+            <div class="app">Work · TollBff · #2</div>
+            <div class="msg">No output for 15s — may be waiting for input</div>
+          </div>
+          <div class="notif">
+            <div class="top">Connection status</div>
+            <div class="app">home-server</div>
+            <div class="msg">Connection lost — reconnecting…</div>
+          </div>
+          <div class="notif">
+            <div class="top">Connection status</div>
+            <div class="app">home-server</div>
+            <div class="msg">Monitoring paused — tap to resume</div>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+  </div>
+</body>
+</html>

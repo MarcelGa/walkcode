@@ -1,0 +1,11 @@
+services:
+  testhost:
+    build: .
+    image: walkcode-testhost
+    container_name: walkcode-testhost
+    hostname: testhost
+    ports:
+      - "2222:22"
+    volumes:
+      - ./keys:/keys:ro
+    restart: unless-stopped
