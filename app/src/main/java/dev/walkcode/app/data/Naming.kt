@@ -27,3 +27,6 @@ object Naming {
         return n
     }
 }
+
+/** What the UI calls a session: its label, else "#N" (ordinal 0 is #1). */
+fun Session.displayName(): String = label?.takeIf { it.isNotBlank() } ?: "#${ordinal + 1}"

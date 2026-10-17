@@ -13,7 +13,7 @@ at the end of each work session.
 | **M1** | Data layer + Keystore key + TOFU + LAN/tailnet connect | **done (`fb1766f`)** |
 | M2 | UI: projects, workspaces, session list, launcher, terminal | **done** |
 | M3 | Unread/foreground service/alerts, reconnect, "paused" notice | **done** (paused notice untested, see below) |
-| M4 | Labels, rename, settings, battery-optimisation prompt | next |
+| M4 | Labels, rename, settings, battery-optimisation prompt | **done** |
 
 ## What exists now
 
@@ -149,3 +149,31 @@ background, bell -> "Needs your attention", output then silence -> "No output fo
 intent opens the session, frozen host (`docker pause`) -> "Connection lost" then recovery.
 **Not verified:** the Android 15+ dataSync `onTimeout` pause path (emulator is API 34);
 psmux/Windows monitoring through the service (poller itself was verified in spike 3).
+
+## M4 status (labels, settings, battery)
+
+- **Session labels / rename:** `Session.label` (Room schema 2, `MIGRATION_1_2`); `Session.displayName()`
+  is the label else `#N`. Pencil pill on a session row renames; projects have a rename + recolour
+  dialog (pencil in the project top bar); workspaces were already editable. Alert titles read
+  `Project · Workspace · <label|#N>`.
+- **Settings tab** (`ui/SettingsScreen.kt`, `data/AppSettings.kt`): quiet alerts on/off, quiet
+  threshold (5-120 s, default 15), battery-optimisation status with an "Allow" shortcut. A changed
+  threshold rebuilds the host monitors (`Monitor.restartHostMonitors`); the on/off switch is live.
+- **Battery prompt:** the first time a session is watched and the app is still battery-optimised,
+  a dialog offers the system "ignore battery optimisations" request (shown once).
+- Fixed on the way: re-watching after un-watching the last session used to stop the service
+  immediately (stale `watchedByHost` from the previous run).
+
+**Verified:** `tools/spikes/m4-settings.ps1` (emulator + Docker host, fresh seeded database): rename
+shows in the list and alert title, battery prompt appears, Settings shows Optimised then Unrestricted
+after the exemption, threshold persists and a 5 s threshold fires the quiet alert in ~9-10 s (vs >=15 s
+default). The 1 -> 2 migration was verified once by installing over a real v1 database (data kept, no
+crash); it is not part of the script. `SessionDisplayNameTest` covers `displayName()`.
+**Not verified:** granting the exemption through the real system dialog (set with `dumpsys deviceidle`
+instead); Windows/psmux monitoring through the service.
+
+## What is left
+
+All four planned milestones are done. Remaining gaps / ideas: the Android 15 dataSync `onTimeout`
+pause path and Windows monitoring through the service are untested; agent presets cannot be edited in
+the UI yet (only the four built-ins); no import/export of hosts and workspaces.

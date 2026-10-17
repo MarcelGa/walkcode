@@ -91,6 +91,8 @@ data class Session(
     val workspaceId: Long,
     val ordinal: Int,
     val watched: Boolean = false,
+    /** Optional user-given name shown instead of "#N". */
+    val label: String? = null,
     /** When this session was last viewed, and the screen hash at that moment (unread detection). */
     val lastViewedAt: Long? = null,
     val lastViewedHash: String? = null,

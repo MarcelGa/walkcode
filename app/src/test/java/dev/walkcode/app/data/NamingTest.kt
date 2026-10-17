@@ -36,3 +36,17 @@ class NamingTest {
         assertEquals(1, Naming.nextOrdinal(listOf(0, 2)))
     }
 }
+
+class SessionDisplayNameTest {
+    private fun session(ordinal: Int, label: String?) =
+        Session(tmuxName = "wc-x-1", workspaceId = 1, ordinal = ordinal, label = label)
+
+    @org.junit.Test fun fallsBackToOrdinal() {
+        org.junit.Assert.assertEquals("#1", session(0, null).displayName())
+        org.junit.Assert.assertEquals("#3", session(2, "  ").displayName())
+    }
+
+    @org.junit.Test fun labelWins() {
+        org.junit.Assert.assertEquals("build", session(1, "build").displayName())
+    }
+}

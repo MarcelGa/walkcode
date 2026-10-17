@@ -94,6 +94,10 @@ class WalkcodeRepository(private val db: WalkcodeDatabase) {
 
     suspend fun setSessionWatched(sessionId: Long, watched: Boolean) = db.sessions().setWatched(sessionId, watched)
 
+    suspend fun renameSession(sessionId: Long, label: String?) = db.sessions().setLabel(sessionId, label?.trim()?.ifEmpty { null })
+
+    suspend fun updateProject(project: Project): Long = db.projects().upsert(project)
+
     /** Marks a session as seen, storing the screen hash so unread can be recomputed. */
     suspend fun markSessionViewed(sessionId: Long, screenHash: String? = null, at: Long = System.currentTimeMillis()) =
         db.sessions().markViewed(sessionId, at, screenHash)

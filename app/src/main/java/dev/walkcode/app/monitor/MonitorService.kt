@@ -13,10 +13,12 @@ import android.os.IBinder
 import dev.walkcode.app.MainActivity
 import dev.walkcode.app.R
 import dev.walkcode.app.data.WalkcodeRepository
+import dev.walkcode.app.data.displayName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
@@ -69,10 +71,16 @@ class MonitorService : Service() {
             HostAlert.Kind.ATTENTION -> "Needs your attention"
             HostAlert.Kind.QUIET -> "No output for ${a.idleSec}s — may be waiting for input"
         }
-        val sessionId = withContext(Dispatchers.IO) { WalkcodeRepository.get(this@MonitorService).sessionByName(a.session)?.id }
+        val (sessionId, title) = withContext(Dispatchers.IO) {
+            val repo = WalkcodeRepository.get(this@MonitorService)
+            val s = repo.sessionByName(a.session)
+            val w = s?.let { repo.workspace(it.workspaceId) }
+            val p = w?.projectId?.let { id -> repo.projects.first().firstOrNull { it.id == id } }
+            s?.id to (if (s != null && w != null) listOfNotNull(p?.name, w.name, s.displayName()).joinToString(" · ") else "${a.hostName} · ${a.session}")
+        }
         val n = Notification.Builder(this, CHANNEL_ALERTS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("${a.hostName} · ${a.session}")
+            .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)
             .setContentIntent(openSession(sessionId))

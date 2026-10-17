@@ -126,6 +126,7 @@ fun ListRow(
     title: String,
     subtitle: String? = null,
     path: String? = null,
+    subtitleLines: Int = 1,
     onClick: (() -> Unit)? = null,
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
@@ -140,7 +141,7 @@ fun ListRow(
         leading?.invoke()
         Column(Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.SemiBold, color = WC.Fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle != null) Text(subtitle, color = WC.Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null) Text(subtitle, color = WC.Muted, fontSize = 12.sp, maxLines = subtitleLines, overflow = TextOverflow.Ellipsis)
             if (path != null) Text(path, color = WC.Blue, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         trailing?.invoke()

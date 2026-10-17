@@ -31,6 +31,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.terminal.TerminalSession
 import com.termux.view.TerminalView
 import dev.walkcode.app.data.WalkcodeRepository
+import dev.walkcode.app.data.displayName
 import dev.walkcode.app.monitor.Monitor
 import dev.walkcode.app.session.Attachment
 import kotlinx.coroutines.launch
@@ -127,7 +128,7 @@ fun ColumnScope.TerminalScreen(
         }
     }
 
-    TopBar(listOfNotNull(workspace?.name, session?.let { if (it.ordinal == 0) "#1" else "#${it.ordinal + 1}" }).joinToString(" / "), onBack = onBack)
+    TopBar(listOfNotNull(workspace?.name, session?.displayName()).joinToString(" / "), onBack = onBack)
     Text(
         listOfNotNull(host?.name, workspace?.directory, preset?.name?.lowercase(), title).joinToString(" · "),
         color = WC.Muted, fontSize = 12.sp, maxLines = 1, fontFamily = FontFamily.Monospace,

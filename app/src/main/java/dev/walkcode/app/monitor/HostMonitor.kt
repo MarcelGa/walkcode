@@ -55,12 +55,13 @@ class HostMonitor(
     private val watched: () -> Set<String>,
     private val onAlert: (HostAlert) -> Unit,
     quietAfterSec: Long = 15,
+    quietEnabled: () -> Boolean = { true },
     private val backoffMs: List<Long> = listOf(2_000, 5_000, 10_000, 30_000),
     private val tickMs: Long = 5_000,
     private val staleMs: Long = 75_000,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    private val tracker = ActivityTracker(quietAfterSec = quietAfterSec)
+    private val tracker = ActivityTracker(quietAfterSec = quietAfterSec, quietEnabled = { quietEnabled() })
 
     private val _status = MutableStateFlow<LinkStatus>(LinkStatus.Connecting)
     val status: StateFlow<LinkStatus> = _status

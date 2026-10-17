@@ -123,7 +123,7 @@ Design model: **Hosts** (SSH machines) → **Projects** (local colour labels) �
 
 ## Status
 
-Spikes 1–3 and milestones **M1–M3** are done and committed. Next is **M4** (labels, rename, settings, battery-optimisation prompt).
+Spikes 1–3 and milestones **M1–M4** are done and committed. See the "What is left" section of `docs/PROGRESS.md`.
 See `docs/PROGRESS.md` for the milestone breakdown and the exact next steps.
 
 **Before asking the user anything about product/design, read

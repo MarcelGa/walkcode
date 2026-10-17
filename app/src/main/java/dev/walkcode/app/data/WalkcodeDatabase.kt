@@ -5,11 +5,12 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Host::class, Project::class, AgentPreset::class, Workspace::class, Session::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -23,6 +24,12 @@ abstract class WalkcodeDatabase : RoomDatabase() {
     companion object {
         private const val NAME = "walkcode.db"
 
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE sessions ADD COLUMN label TEXT")
+            }
+        }
+
         @Volatile private var instance: WalkcodeDatabase? = null
 
         fun get(context: Context): WalkcodeDatabase =
@@ -32,6 +39,7 @@ abstract class WalkcodeDatabase : RoomDatabase() {
 
         private fun build(context: Context): WalkcodeDatabase =
             Room.databaseBuilder(context, WalkcodeDatabase::class.java, NAME)
+                .addMigrations(MIGRATION_1_2)
                 .addCallback(SeedBuiltInAgents)
                 .build()
 

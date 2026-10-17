@@ -139,9 +139,11 @@ fun ProjectDetailScreen(
     val scope = rememberCoroutineScope()
     val project = projects.firstOrNull { it.id == projectId }
     var confirmDelete by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
 
     TopBar(project?.name ?: "No project", onBack = onBack) {
         BarAction("+", onNewWorkspace)
+        if (project != null) BarAction("✎") { editing = true }
         if (project != null) BarAction("✕") { confirmDelete = true }
     }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 4.dp)) {
@@ -166,6 +168,31 @@ fun ProjectDetailScreen(
                 },
             )
         }
+    }
+    if (editing && project != null) {
+        var name by remember(project.id) { mutableStateOf(project.name) }
+        var color by remember(project.id) { mutableStateOf(project.color ?: ProjectPalette[0]) }
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text("Edit project") },
+            text = {
+                Column {
+                    FormField("Name", name, { name = it })
+                    Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        for (c in ProjectPalette) {
+                            Box(Modifier.size(if (c == color) 30.dp else 24.dp).clip(CircleShape).background(Color(c)).clickable { color = c })
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = name.isNotBlank(), onClick = {
+                    scope.launch { repo.updateProject(project.copy(name = name.trim(), color = color)) }
+                    editing = false
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } },
+        )
     }
     if (confirmDelete && project != null) {
         AlertDialog(

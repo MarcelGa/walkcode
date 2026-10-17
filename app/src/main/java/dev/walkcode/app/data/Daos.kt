@@ -95,6 +95,9 @@ interface SessionDao {
     @Delete
     suspend fun delete(session: Session)
 
+    @Query("UPDATE sessions SET label = :label WHERE id = :id")
+    suspend fun setLabel(id: Long, label: String?)
+
     @Query("UPDATE sessions SET watched = :watched WHERE id = :id")
     suspend fun setWatched(id: Long, watched: Boolean)
 

@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.walkcode.app.data.WalkcodeRepository
+import dev.walkcode.app.data.AppSettings
 import dev.walkcode.app.monitor.Monitor
 import dev.walkcode.app.monitor.MonitorService
 import dev.walkcode.app.session.SessionService
@@ -33,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 private sealed interface Route {
     data object Projects : Route
     data object Hosts : Route
+    data object Settings : Route
     data class Project(val id: Long?) : Route
     data class Workspace(val id: Long) : Route
     data class WorkspaceEditor(val id: Long?, val projectId: Long?) : Route
@@ -40,7 +42,7 @@ private sealed interface Route {
     data class Terminal(val sessionId: Long, val resume: Boolean) : Route
 }
 
-private val Route.isTopLevel: Boolean get() = this == Route.Projects || this == Route.Hosts
+private val Route.isTopLevel: Boolean get() = this == Route.Projects || this == Route.Hosts || this == Route.Settings
 
 @Composable
 fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) {
@@ -48,6 +50,7 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
     val repo = remember { WalkcodeRepository.get(context) }
     val service = remember { SessionService(repo) }
     val monitor = remember { Monitor.get(context) }
+    val settings = remember { AppSettings.get(context) }
     // Top-level tabs replace each other; everything else stacks on the current tab.
     val stack = remember { mutableStateListOf<Route>(Route.Projects) }
     val current = stack.last()
@@ -88,6 +91,10 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
                         HostsScreen(repo, monitor, onOpenHost = { push(Route.HostEditor(it)) })
                         Spacer1(Modifier.weight(1f))
                     }
+                    Route.Settings -> {
+                        SettingsScreen(settings)
+                        Spacer1(Modifier.weight(1f))
+                    }
                     is Route.Project -> ProjectDetailScreen(
                         repo, monitor, r.id, onBack = ::pop,
                         onOpenWorkspace = { push(Route.Workspace(it)) },
@@ -120,7 +127,7 @@ private fun Spacer1(modifier: Modifier) {
 @Composable
 private fun BottomNav(current: Route, onSelect: (Route) -> Unit) {
     Row(Modifier.fillMaxWidth().background(WC.Panel)) {
-        for ((label, route) in listOf("Projects" to Route.Projects, "Hosts" to Route.Hosts)) {
+        for ((label, route) in listOf("Projects" to Route.Projects, "Hosts" to Route.Hosts, "Settings" to Route.Settings)) {
             val selected = current == route
             Text(
                 label, textAlign = TextAlign.Center, fontSize = 13.sp,
