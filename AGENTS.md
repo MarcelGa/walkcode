@@ -30,7 +30,7 @@ Start-Process -FilePath ".\gradlew.bat" -ArgumentList ':app:testDebugUnitTest','
 
 End-to-end checks run on the emulator via PowerShell runners in `tools/spikes/`.
 They start the AVD headless, install both APKs, authorize the device key and run
-instrumentation. Emulator/AVD `Phone_PlayStore_API34`, SDK at
+instrumentation. Emulator/AVD `Phone_PlayStore_API35`, SDK at
 `%LOCALAPPDATA%\Android\Sdk`.
 
 ```powershell
@@ -84,7 +84,7 @@ Design model: **Hosts** (SSH machines) â†’ **Projects** (local colour labels) â†
 
 ## Conventions
 
-- Kotlin + Jetpack Compose. `minSdk 34`, `targetSdk 36`, **`compileSdk 37`**
+- Kotlin + Jetpack Compose. `minSdk 35` (Android 15; target device is a Galaxy S25), `targetSdk 36`, **`compileSdk 37`**
   (AndroidX requires it). Gradle 9.8.1, AGP 9.4.1, Kotlin 2.4.21, Room 2.8.5 via
   KSP 2.3.12, sshj 0.41.2, BouncyCastle 1.86.
 - Comments explain **why** (trade-offs, workarounds). Keep that style; don't add

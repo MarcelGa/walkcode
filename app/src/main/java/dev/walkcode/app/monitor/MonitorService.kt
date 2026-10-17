@@ -112,7 +112,6 @@ class MonitorService : Service() {
     }
 
     // Called by Android 15+ when the dataSync time limit is reached; must stop promptly.
-    @Suppress("NewApi")
     override fun onTimeout(startId: Int, fgsType: Int) {
         monitor.stop(byOs = true)
         val n = Notification.Builder(this, CHANNEL_STATUS)

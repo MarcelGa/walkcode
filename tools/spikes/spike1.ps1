@@ -16,7 +16,7 @@ $cls = 'dev.walkcode.app.ssh.SshSpikeTest'
 
 function Start-Emulator {
     if ((& $adb devices) -match 'emulator-\d+\s+device') { return }
-    Start-Process "$sdk\emulator\emulator.exe" -ArgumentList '-avd', 'Phone_PlayStore_API34', '-no-window', '-no-audio', '-no-snapshot-save', '-no-boot-anim' -WindowStyle Hidden
+    Start-Process "$sdk\emulator\emulator.exe" -ArgumentList '-avd', 'Phone_PlayStore_API35', '-no-window', '-no-audio', '-no-snapshot-save', '-no-boot-anim' -WindowStyle Hidden
     & $adb wait-for-device
     while ((& $adb shell getprop sys.boot_completed 2>$null) -notmatch '1') { Start-Sleep 3 }
     # Networking comes up a little after boot completes.

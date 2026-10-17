@@ -147,7 +147,7 @@ Code in `app/src/main/java/dev/walkcode/app/monitor/`:
 quiet alert); `tools/spikes/m3-monitor.ps1` on the emulator + Docker host: service runs in the
 background, bell -> "Needs your attention", output then silence -> "No output for Ns", alert
 intent opens the session, frozen host (`docker pause`) -> "Connection lost" then recovery.
-**Not verified:** the Android 15+ dataSync `onTimeout` pause path (emulator is API 34);
+**Not verified:** (the dataSync `onTimeout` pause path is now verified on API 35, see below);
 psmux/Windows monitoring through the service (poller itself was verified in spike 3).
 
 ## M4 status (labels, settings, battery)
@@ -177,3 +177,16 @@ instead); Windows/psmux monitoring through the service.
 All four planned milestones are done. Remaining gaps / ideas: the Android 15 dataSync `onTimeout`
 pause path and Windows monitoring through the service are untested; agent presets cannot be edited in
 the UI yet (only the four built-ins); no import/export of hosts and workspaces.
+
+## Target: Android 15+ (Galaxy S25)
+
+`minSdk` is 35 (the device is a Galaxy S25; Android 15, upgradable to 16). The emulator is now
+`Phone_PlayStore_API35` (the API 34 AVD can no longer install the app). All acceptance scripts were
+rerun on it and pass: `m1-connector`, `m2-launch`, `m2-ui`, `m3-monitor`, `m4-settings`.
+New `tools/spikes/m3-timeout.ps1` shortens the dataSync limit with
+`device_config put activity_manager data_sync_fgs_timeout_duration 20000` and verifies:
+`onTimeout` stops the service in time (no `ForegroundServiceDidNotStopInTimeException`), the
+"Monitoring paused" notice appears, and its intent resumes monitoring. A new emulator has a new
+Keystore key, so run `m1-connector.ps1` once to authorize it on the Docker host.
+**Not rerun on API 35:** `m2-launch-windows.ps1` (the new device key must be added to the Windows
+host's `administrators_authorized_keys`, which needs an elevated shell).
