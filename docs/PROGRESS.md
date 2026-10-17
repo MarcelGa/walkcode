@@ -11,7 +11,7 @@ at the end of each work session.
 | S2 | Vendored Termux terminal attached to tmux/psmux | done (`168f9f5`) |
 | S3 | Host poller → unread / quiet / attention | done (`6f5dfd1`) |
 | **M1** | Data layer + Keystore key + TOFU + LAN/tailnet connect | **done (`fb1766f`)** |
-| M2 | UI: projects, workspaces, session list, launcher, terminal | next |
+| M2 | UI: projects, workspaces, session list, launcher, terminal | **code complete, only smoke-tested** (see below) |
 | M3 | Unread/foreground service/alerts, reconnect, "paused" notice | todo |
 | M4 | Labels, rename, settings, battery-optimisation prompt | todo |
 
@@ -103,3 +103,22 @@ treat them as decided and do not re-ask the user about them.
   mismatch reporting, unit + instrumented tests. The e2e test caught that a rejected
   host key arrives as a `TransportException` — fixed in `HostConnector`. Committed as
   `fb1766f`.
+
+## M2 status (UI)
+
+Implemented under `app/src/main/java/dev/walkcode/app/ui/` and `session/`:
+Projects / Project detail / Workspace (session list with running/stopped state
+queried from the host) / Workspace editor / Hosts / Host editor (pubkey copy, pinned
+fingerprint, forget key) / Terminal screen (key row, connect/retry/reconnect overlay).
+`session/MuxCommands.kt` builds the tmux/psmux commands (unit-tested);
+`session/SessionService.kt` connects, persists the TOFU pin, creates the session and
+starts the agent if missing, supports resume via `AgentPreset.resumeCommand`.
+Navigation is a simple in-memory back stack (no navigation-compose).
+
+**Verified:** unit tests + `assembleDebug` green; app launches on the emulator and
+renders the Projects tab.
+**Not verified yet (do first next session):** the full flow against a real host
+(add host -> workspace -> new session -> terminal), esp. psmux quoting
+(`send-keys` text, `%USERPROFILE%` paths) and `~` expansion for tmux. Docker host
+was not running. Needs an instrumented/e2e runner like `tools/spikes/*.ps1`.
+Known gaps: `markSessionViewed` is not called yet (M3); no battery/foreground bits.
