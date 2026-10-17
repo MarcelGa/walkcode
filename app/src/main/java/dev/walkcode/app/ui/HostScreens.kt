@@ -24,14 +24,17 @@ import androidx.compose.ui.unit.sp
 import dev.walkcode.app.data.Host
 import dev.walkcode.app.data.ShellKind
 import dev.walkcode.app.data.WalkcodeRepository
+import dev.walkcode.app.monitor.LinkStatus
+import dev.walkcode.app.monitor.Monitor
 import dev.walkcode.app.ssh.DeviceKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun HostsScreen(repo: WalkcodeRepository, onOpenHost: (Long?) -> Unit) {
+fun HostsScreen(repo: WalkcodeRepository, monitor: Monitor, onOpenHost: (Long?) -> Unit) {
     val hosts by repo.hosts.collectAsState(emptyList())
+    val linkStatus by monitor.status.collectAsState()
     val workspaces by repo.workspaces.collectAsState(emptyList())
     val context = LocalContext.current
     var pubKey by remember { mutableStateOf<String?>(null) }
@@ -47,12 +50,25 @@ fun HostsScreen(repo: WalkcodeRepository, onOpenHost: (Long?) -> Unit) {
             ListRow(
                 title = h.name,
                 subtitle = listOfNotNull(
-                    if (h.hostKeyFingerprint != null) "trusted" else "not connected yet",
+                    when (val s = linkStatus[h.id]) {
+                        is LinkStatus.Connected -> "watching"
+                        is LinkStatus.Connecting -> "connecting…"
+                        is LinkStatus.Reconnecting -> "reconnecting…"
+                        null -> if (h.hostKeyFingerprint != null) "trusted" else "not connected yet"
+                    },
                     h.addresses.firstOrNull(),
                     "$count workspace${if (count == 1) "" else "s"}",
                 ).joinToString(" · "),
                 onClick = { onOpenHost(h.id) },
-                leading = { Dot(if (h.hostKeyFingerprint != null) WC.Accent else WC.Off) },
+                leading = {
+                    Dot(
+                        when (linkStatus[h.id]) {
+                            is LinkStatus.Connected -> WC.Accent
+                            is LinkStatus.Connecting, is LinkStatus.Reconnecting -> WC.Warn
+                            null -> if (h.hostKeyFingerprint != null) WC.Accent else WC.Off
+                        },
+                    )
+                },
             )
         }
         SectionLabel("Device key")

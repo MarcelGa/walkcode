@@ -12,8 +12,8 @@ at the end of each work session.
 | S3 | Host poller → unread / quiet / attention | done (`6f5dfd1`) |
 | **M1** | Data layer + Keystore key + TOFU + LAN/tailnet connect | **done (`fb1766f`)** |
 | M2 | UI: projects, workspaces, session list, launcher, terminal | **done** |
-| M3 | Unread/foreground service/alerts, reconnect, "paused" notice | todo |
-| M4 | Labels, rename, settings, battery-optimisation prompt | todo |
+| M3 | Unread/foreground service/alerts, reconnect, "paused" notice | **done** (paused notice untested, see below) |
+| M4 | Labels, rename, settings, battery-optimisation prompt | next |
 
 ## What exists now
 
@@ -124,3 +124,28 @@ renders the Projects tab.
 (`send-keys` text, `%USERPROFILE%` paths) and `~` expansion for tmux. Docker host
 was not running. Needs an instrumented/e2e runner like `tools/spikes/*.ps1`.
 Known gaps: `markSessionViewed` is not called yet (M3); no battery/foreground bits.
+
+## M3 status (monitoring)
+
+Code in `app/src/main/java/dev/walkcode/app/monitor/`:
+- `HostMonitor` — one per host: opens a `PollLink`, feeds `ActivityTracker`, raises alerts
+  **only for watched sessions**, reconnects with backoff (2/5/10/30 s) and treats 75 s
+  without any poller event as a dead link (poller heartbeats every 30 s; a stalled TCP
+  connection otherwise never errors).
+- `Monitor` — process singleton: reconciles one `HostMonitor` per host that has a watched
+  session; exposes `activity`, `status`, `alerts`, `paused`, `setFocused`.
+- `MonitorService` — `dataSync` foreground service, two channels (`agent_alerts` high,
+  `connection_status` low), "Connection lost" notice after 2 failed attempts, `onTimeout`
+  (Android 15 dataSync cap) stops monitoring and posts "Monitoring paused - tap to resume".
+  Tapping an alert opens that session's terminal.
+- UI: per-session Watch/Watching toggle (asks for POST_NOTIFICATIONS), active/quiet/unread in
+  the session list, unread dot on workspaces, host link status on the Hosts tab, paused banner
+  on Projects. The terminal on screen is "focused": no alerts, unread cleared on leave.
+- Quiet threshold is the 15 s default (`HostMonitor(quietAfterSec)`); not configurable yet (M4).
+
+**Verified:** `HostMonitorTest` (JVM: watched-only alerts, focused no-alert, backoff/reconnect,
+quiet alert); `tools/spikes/m3-monitor.ps1` on the emulator + Docker host: service runs in the
+background, bell -> "Needs your attention", output then silence -> "No output for Ns", alert
+intent opens the session, frozen host (`docker pause`) -> "Connection lost" then recovery.
+**Not verified:** the Android 15+ dataSync `onTimeout` pause path (emulator is API 34);
+psmux/Windows monitoring through the service (poller itself was verified in spike 3).

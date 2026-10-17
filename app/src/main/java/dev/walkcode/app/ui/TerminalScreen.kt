@@ -31,7 +31,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.terminal.TerminalSession
 import com.termux.view.TerminalView
 import dev.walkcode.app.data.WalkcodeRepository
+import dev.walkcode.app.monitor.Monitor
 import dev.walkcode.app.session.Attachment
+import kotlinx.coroutines.launch
 import dev.walkcode.app.session.SessionService
 import dev.walkcode.app.terminal.ExtraKey
 import dev.walkcode.app.terminal.SshTerminalTransport
@@ -51,6 +53,7 @@ private const val TRANSCRIPT_ROWS = 2000
 fun ColumnScope.TerminalScreen(
     repo: WalkcodeRepository,
     service: SessionService,
+    monitor: Monitor,
     sessionId: Long,
     resume: Boolean,
     onBack: () -> Unit,
@@ -102,6 +105,18 @@ fun ColumnScope.TerminalScreen(
             controller.showKeyboard()
         } catch (e: Exception) {
             state = TermState.Failed(describeFailure(e))
+        }
+    }
+
+    // The session on screen counts as viewed: no alerts for it, and leaving clears unread.
+    DisposableEffect(session?.tmuxName) {
+        val name = session?.tmuxName
+        monitor.setFocused(name)
+        onDispose {
+            monitor.setFocused(null)
+            if (name != null) {
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { repo.markSessionViewed(sessionId) }
+            }
         }
     }
 

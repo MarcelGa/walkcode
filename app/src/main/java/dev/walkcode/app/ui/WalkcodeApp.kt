@@ -24,7 +24,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.walkcode.app.data.WalkcodeRepository
+import dev.walkcode.app.monitor.Monitor
+import dev.walkcode.app.monitor.MonitorService
 import dev.walkcode.app.session.SessionService
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 
 private sealed interface Route {
     data object Projects : Route
@@ -39,10 +43,11 @@ private sealed interface Route {
 private val Route.isTopLevel: Boolean get() = this == Route.Projects || this == Route.Hosts
 
 @Composable
-fun WalkcodeApp() {
+fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) {
     val context = LocalContext.current
     val repo = remember { WalkcodeRepository.get(context) }
     val service = remember { SessionService(repo) }
+    val monitor = remember { Monitor.get(context) }
     // Top-level tabs replace each other; everything else stacks on the current tab.
     val stack = remember { mutableStateListOf<Route>(Route.Projects) }
     val current = stack.last()
@@ -53,25 +58,43 @@ fun WalkcodeApp() {
 
     BackHandler(enabled = stack.size > 1) { pop() }
 
+    // Background monitoring runs while any session is watched, unless the OS paused it.
+    val allSessions by repo.allSessions.collectAsState(emptyList())
+    val paused by monitor.paused.collectAsState()
+    val anyWatched = allSessions.any { it.watched }
+    LaunchedEffect(anyWatched, paused) {
+        if (anyWatched && !paused) MonitorService.start(context) else MonitorService.stop(context)
+    }
+
+    // Tapping an alert opens that session's terminal on top of its workspace.
+    LaunchedEffect(pendingSession, allSessions) {
+        val id = pendingSession ?: return@LaunchedEffect
+        val s = allSessions.firstOrNull { it.id == id } ?: return@LaunchedEffect
+        selectTab(Route.Projects)
+        push(Route.Workspace(s.workspaceId))
+        push(Route.Terminal(s.id, false))
+        onSessionOpened()
+    }
+
     WalkcodeTheme {
         Surface(Modifier.fillMaxSize(), color = WC.Panel2) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
                 when (val r = current) {
                     Route.Projects -> {
-                        ProjectsScreen(repo, onOpenProject = { push(Route.Project(it)) })
+                        ProjectsScreen(repo, monitor, onOpenProject = { push(Route.Project(it)) })
                         Spacer1(Modifier.weight(1f))
                     }
                     Route.Hosts -> {
-                        HostsScreen(repo, onOpenHost = { push(Route.HostEditor(it)) })
+                        HostsScreen(repo, monitor, onOpenHost = { push(Route.HostEditor(it)) })
                         Spacer1(Modifier.weight(1f))
                     }
                     is Route.Project -> ProjectDetailScreen(
-                        repo, r.id, onBack = ::pop,
+                        repo, monitor, r.id, onBack = ::pop,
                         onOpenWorkspace = { push(Route.Workspace(it)) },
                         onNewWorkspace = { push(Route.WorkspaceEditor(null, r.id)) },
                     )
                     is Route.Workspace -> WorkspaceScreen(
-                        repo, service, r.id, onBack = ::pop,
+                        repo, service, monitor, r.id, onBack = ::pop,
                         onEdit = { push(Route.WorkspaceEditor(r.id, null)) },
                         onOpenSession = { sid, resume -> push(Route.Terminal(sid, resume)) },
                     )
@@ -81,7 +104,7 @@ fun WalkcodeApp() {
                         onDeleted = { pop(); pop() },
                     )
                     is Route.HostEditor -> HostEditorScreen(repo, r.id, onDone = ::pop)
-                    is Route.Terminal -> TerminalScreen(repo, service, r.sessionId, r.resume, onBack = ::pop)
+                    is Route.Terminal -> TerminalScreen(repo, service, monitor, r.sessionId, r.resume, onBack = ::pop)
                 }
                 if (current.isTopLevel) BottomNav(current, ::selectTab)
             }

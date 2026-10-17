@@ -29,6 +29,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.walkcode.app.data.Project
+import dev.walkcode.app.monitor.Monitor
+import androidx.compose.foundation.layout.fillMaxWidth
 import dev.walkcode.app.data.WalkcodeRepository
 import kotlinx.coroutines.launch
 
@@ -37,7 +39,8 @@ val ProjectPalette = listOf(0xFF3DDC84, 0xFF6AA9FF, 0xFFFFB020, 0xFFFF6B6B, 0xFF
 fun projectColor(p: Project?): Color = p?.color?.let { Color(it) } ?: WC.Muted
 
 @Composable
-fun ProjectsScreen(repo: WalkcodeRepository, onOpenProject: (Long?) -> Unit) {
+fun ProjectsScreen(repo: WalkcodeRepository, monitor: Monitor, onOpenProject: (Long?) -> Unit) {
+    val paused by monitor.paused.collectAsState()
     val projects by repo.projects.collectAsState(emptyList())
     val workspaces by repo.workspaces.collectAsState(emptyList())
     val hosts by repo.hosts.collectAsState(emptyList())
@@ -62,6 +65,12 @@ fun ProjectsScreen(repo: WalkcodeRepository, onOpenProject: (Long?) -> Unit) {
     }
 
     TopBar("Projects") { BarAction("+") { adding = true } }
+    if (paused) {
+        Text(
+            "Monitoring paused 2014 tap to resume", color = WC.Warn, fontSize = 13.sp,
+            modifier = Modifier.fillMaxWidth().clickable { monitor.resume() }.background(WC.Panel).padding(14.dp),
+        )
+    }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 4.dp)) {
         if (projects.isEmpty() && workspaces.isEmpty()) {
             EmptyHint("Add a host in the Hosts tab, then create a project with + and a workspace inside it.")
@@ -115,6 +124,7 @@ fun ProjectsScreen(repo: WalkcodeRepository, onOpenProject: (Long?) -> Unit) {
 @Composable
 fun ProjectDetailScreen(
     repo: WalkcodeRepository,
+    monitor: Monitor,
     projectId: Long?,
     onBack: () -> Unit,
     onOpenWorkspace: (Long) -> Unit,
@@ -125,6 +135,7 @@ fun ProjectDetailScreen(
     val hosts by repo.hosts.collectAsState(emptyList())
     val presets by repo.agentPresets.collectAsState(emptyList())
     val sessions by repo.allSessions.collectAsState(emptyList())
+    val activity by monitor.activity.collectAsState()
     val scope = rememberCoroutineScope()
     val project = projects.firstOrNull { it.id == projectId }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -146,7 +157,13 @@ fun ProjectDetailScreen(
                 path = w.directory,
                 onClick = { onOpenWorkspace(w.id) },
                 leading = { Dot(if (n > 0) WC.Accent else WC.Off) },
-                trailing = { if (n > 0) Badge(n) },
+                trailing = {
+                    val unread = sessions.any { it.workspaceId == w.id && it.watched && activity[it.tmuxName]?.unread == true }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (unread) UnreadDot()
+                        if (n > 0) Badge(n)
+                    }
+                },
             )
         }
     }

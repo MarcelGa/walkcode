@@ -26,7 +26,15 @@ import androidx.compose.ui.unit.sp
 import dev.walkcode.app.data.Session
 import dev.walkcode.app.data.Workspace
 import dev.walkcode.app.data.WalkcodeRepository
+import dev.walkcode.app.monitor.Monitor
 import dev.walkcode.app.session.SessionService
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import dev.walkcode.app.ssh.HostKeyMismatchException
 import kotlinx.coroutines.launch
 
@@ -48,6 +56,7 @@ fun describeFailure(e: Throwable): String = when (e) {
 fun ColumnScope.WorkspaceScreen(
     repo: WalkcodeRepository,
     service: SessionService,
+    monitor: Monitor,
     workspaceId: Long,
     onBack: () -> Unit,
     onEdit: () -> Unit,
@@ -59,6 +68,10 @@ fun ColumnScope.WorkspaceScreen(
     val presets by repo.agentPresets.collectAsState(emptyList())
     val sessions by repo.sessionsFor(workspaceId).collectAsState(emptyList())
     val scope = rememberCoroutineScope()
+    val activity by monitor.activity.collectAsState()
+    // Alerts need the notification permission; ask the first time a session is watched.
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val context = LocalContext.current
 
     val workspace = workspaces.firstOrNull { it.id == workspaceId }
     val host = workspace?.let { w -> hosts.firstOrNull { it.id == w.hostId } }
@@ -101,17 +114,30 @@ fun ColumnScope.WorkspaceScreen(
         for (s in sessions) {
             val running = (state as? HostState.Known)?.running?.contains(s.tmuxName)
             val label = if (s.ordinal == 0) "#1" else "#${s.ordinal + 1}"
+            val act = activity[s.tmuxName]?.takeIf { s.watched }
             ListRow(
                 title = label,
                 subtitle = when (running) {
-                    true -> "running"
+                    true -> when {
+                        act == null -> "running"
+                        act.active -> "active"
+                        act.unread -> "quiet ${act.idleSec}s · unread"
+                        else -> "quiet ${act.idleSec}s"
+                    }
                     false -> "stopped"
                     null -> if (state is HostState.Checking) "checking…" else "status unknown"
                 },
                 leading = { Dot(when (running) { true -> WC.Accent; false -> WC.Off; null -> WC.Warn }) },
                 onClick = { onOpenSession(s.id, false) },
                 trailing = {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (act?.unread == true) UnreadDot()
+                        Pill(if (s.watched) "Watching" else "Watch", hot = s.watched, onClick = {
+                            scope.launch { repo.setSessionWatched(s.id, !s.watched) }
+                            if (!s.watched && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        })
                         if (running == false && preset?.resumeCommand != null) Pill("▶ resume", onClick = { onOpenSession(s.id, true) })
                         Pill("✕", onClick = { pendingDelete = s })
                     }

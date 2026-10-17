@@ -95,6 +95,11 @@ fun Dot(color: Color) {
 }
 
 @Composable
+fun UnreadDot() {
+    Box(Modifier.size(8.dp).clip(CircleShape).background(WC.Accent))
+}
+
+@Composable
 fun Badge(count: Int, dim: Boolean = false) {
     Box(
         Modifier.heightIn(min = 20.dp).clip(RoundedCornerShape(10.dp))
