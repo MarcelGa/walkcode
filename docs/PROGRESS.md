@@ -11,7 +11,7 @@ at the end of each work session.
 | S2 | Vendored Termux terminal attached to tmux/psmux | done (`168f9f5`) |
 | S3 | Host poller → unread / quiet / attention | done (`6f5dfd1`) |
 | **M1** | Data layer + Keystore key + TOFU + LAN/tailnet connect | **done (`fb1766f`)** |
-| M2 | UI: projects, workspaces, session list, launcher, terminal | **code complete, only smoke-tested** (see below) |
+| M2 | UI: projects, workspaces, session list, launcher, terminal | **done** |
 | M3 | Unread/foreground service/alerts, reconnect, "paused" notice | todo |
 | M4 | Labels, rename, settings, battery-optimisation prompt | todo |
 
@@ -119,7 +119,7 @@ Navigation is a simple in-memory back stack (no navigation-compose).
 renders the Projects tab.
 **Verified on the Docker tmux host (`tools/spikes/m2-launch.ps1`, `SessionServiceTest`):** create session in a `~` directory with spaces, agent starts, listed as running, re-launch does not restart, kill, resume-after-stop uses the resume command.
 **Also verified on the Windows desktop with psmux (`tools/spikes/m2-launch-windows.ps1`):** same flow incl. `%USERPROFILE%` paths with spaces, raw-CR submit, no PTY.
-**Not verified yet:** the Compose screens driven end to end (add host -> terminal). Original note: the full flow against a real host
+**Compose UI verified end to end on the emulator (`tools/spikes/m2-ui.ps1`, Docker host):** add host -> project -> workspace -> new session -> terminal attach -> typed input reaches tmux -> workspace list shows the session as running. M2 is done. Original note: the full flow against a real host
 (add host -> workspace -> new session -> terminal), esp. psmux quoting
 (`send-keys` text, `%USERPROFILE%` paths) and `~` expansion for tmux. Docker host
 was not running. Needs an instrumented/e2e runner like `tools/spikes/*.ps1`.
