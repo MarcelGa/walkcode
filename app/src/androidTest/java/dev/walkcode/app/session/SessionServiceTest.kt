@@ -83,4 +83,60 @@ class SessionServiceTest {
         c.join(10, TimeUnit.SECONDS)
         out
     }
+
+    /** Same flow against the Windows desktop (psmux, no PTY, cmd.exe quoting, raw-CR submit). */
+    @Test
+    fun launchListResumeKillWindows(): Unit = runBlocking<Unit> {
+        val args = InstrumentationRegistry.getArguments()
+        val user = args.getString("winUser") ?: error("pass -e winUser <windows user>")
+        val hostId = repo.addHost("m2 windows", user, ShellKind.PSMUX, lanHost = "10.0.2.2", port = 22)
+        // Typed into the pane's pwsh, so no extra quoting layer is needed for the agent command.
+        val presetId = repo.upsertAgentPreset(
+            AgentPreset(
+                name = "fake-win",
+                command = "Write-Host WC_STARTED_FRESH (Get-Location); Start-Sleep 600",
+                resumeCommand = "Write-Host WC_STARTED_RESUME; Start-Sleep 600",
+            ),
+        )
+        val wsId = repo.addWorkspace("M2 Win", hostId, "~/wc m2 dir", agentPresetId = presetId, args = "# it's arg")
+        val host = repo.host(hostId)!!
+        val ws = repo.workspace(wsId)!!
+
+        val setup = service.connect(host)
+        try { exec(setup.client, "mkdir \"%USERPROFILE%\\wc m2 dir\" 2>nul") } finally { setup.client.close() }
+
+        val session = repo.createSession(wsId)
+        val a = service.launch(host, ws, session, resume = false)
+        try {
+            assertEquals("psmux attach -t ${session.tmuxName}", a.command)
+            assertFalse(a.pty)
+        } finally { a.client.close() }
+
+        assertTrue(session.tmuxName in service.runningSessions(repo.host(hostId)!!))
+
+        val c = service.connect(host)
+        try {
+            Thread.sleep(4000)
+            val screen = exec(c.client, "psmux capture-pane -p -t ${session.tmuxName}")
+            assertTrue("agent output missing: $screen", screen.contains("WC_STARTED_FRESH"))
+            assertTrue("cwd wrong: $screen", screen.contains("wc m2 dir"))
+        } finally { c.client.close() }
+
+        service.launch(host, ws, session, resume = true).client.close()
+        val c2 = service.connect(host)
+        try {
+            assertFalse(exec(c2.client, "psmux capture-pane -p -t ${session.tmuxName}").contains("WC_STARTED_RESUME"))
+        } finally { c2.client.close() }
+
+        service.killSession(host, session)
+        assertFalse(session.tmuxName in service.runningSessions(host))
+
+        service.launch(host, ws, session, resume = true).client.close()
+        val c3 = service.connect(host)
+        try {
+            Thread.sleep(4000)
+            assertTrue(exec(c3.client, "psmux capture-pane -p -t ${session.tmuxName}").contains("WC_STARTED_RESUME"))
+            exec(c3.client, "psmux kill-session -t ${session.tmuxName}")
+        } finally { c3.client.close() }
+    }
 }
