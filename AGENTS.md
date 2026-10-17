@@ -124,5 +124,7 @@ Design model: **Hosts** (SSH machines) → **Projects** (local colour labels) �
 ## Status
 
 Spikes 1–3 and milestone **M1** are done and committed. Next is **M2 (UI)**.
-See `docs/PROGRESS.md` for the milestone breakdown, the decision log and the
-exact next steps.
+See `docs/PROGRESS.md` for the milestone breakdown and the exact next steps.
+
+**Before asking the user anything about product/design, read
+`docs/DECISIONS.md`.** Those choices are already made; do not re-ask them.

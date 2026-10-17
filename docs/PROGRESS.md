@@ -88,19 +88,10 @@ Keep `mockup/index.html` open as the visual reference. Do not build M3 concerns
 (alerts/foreground service) yet, but leave hooks (the `Session.watched` flag is
 already persisted).
 
-## Decision log (from the design Q&A)
+## Decisions
 
-- Direct SSH from the phone; no backend. Ed25519 key in the Keystore; TOFU host
-  keys with manual `authorized_keys` paste.
-- Network: LAN address first (`dev.local` works on Wi-Fi only), Tailscale fallback;
-  Tailscale can also be the always-on path.
-- Alerts are per-session and opt-in (`Session.watched`); "unread" = screen changed
-  since last viewed; "quiet for N s" fallback (default 15 s, configurable).
-- Alerts come from the bell-count hook + screen-hash polling (not `window_activity`).
-- Foreground service type `dataSync` (6 h / 24 h background cap; show a "paused"
-  notice when capped). Two notification channels.
-- The app only sets tmux options on the sessions it watches.
-- No Nerd Font requirement; no filing of psmux bugs.
+All settled product/design decisions live in **[DECISIONS.md](DECISIONS.md)** —
+treat them as decided and do not re-ask the user about them.
 
 ## Session log
 
