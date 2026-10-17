@@ -117,7 +117,8 @@ Navigation is a simple in-memory back stack (no navigation-compose).
 
 **Verified:** unit tests + `assembleDebug` green; app launches on the emulator and
 renders the Projects tab.
-**Not verified yet (do first next session):** the full flow against a real host
+**Verified on the Docker tmux host (`tools/spikes/m2-launch.ps1`, `SessionServiceTest`):** create session in a `~` directory with spaces, agent starts, listed as running, re-launch does not restart, kill, resume-after-stop uses the resume command.
+**Not verified yet:** the Compose screens driven end to end (add host -> terminal), and psmux on Windows (`send-keys` text, `%USERPROFILE%` paths). Original note: the full flow against a real host
 (add host -> workspace -> new session -> terminal), esp. psmux quoting
 (`send-keys` text, `%USERPROFILE%` paths) and `~` expansion for tmux. Docker host
 was not running. Needs an instrumented/e2e runner like `tools/spikes/*.ps1`.
