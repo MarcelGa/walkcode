@@ -190,3 +190,23 @@ New `tools/spikes/m3-timeout.ps1` shortens the dataSync limit with
 Keystore key, so run `m1-connector.ps1` once to authorize it on the Docker host.
 **Not rerun on API 35:** `m2-launch-windows.ps1` (the new device key must be added to the Windows
 host's `administrators_authorized_keys`, which needs an elevated shell).
+
+## Real-device session (2026-10-19)
+
+- Installed on the user's Galaxy S25 (Android 16). Added hosts `desktop` (Windows/psmux, LAN +
+  tailnet) and `homelab-vm` (tmux) and verified a session on each from the phone. Details and the
+  step-by-step are in [DEVICE-TESTING.md](DEVICE-TESTING.md).
+- App changes made from that: full device key shown on the Hosts tab; Windows sessions export
+  `WALKCODE_SESSION=1` before pwsh starts (commit `37d6d7c`; the profile can use it to skip
+  Nerd Font prompts - the user's profile has not been edited yet); terminal-prompt adaptive launcher
+  icon with a monochrome variant (`0320b48`).
+- Open follow-ups: the user's PowerShell profile still draws glyph-heavy prompts in phone sessions
+  (wrap oh-my-posh / ListView prediction in `if (-not $env:WALKCODE_SESSION)`); `homelab-vm` has no
+  tailnet address; alerts with a real agent and the Wi-Fi <-> mobile reconnect are untested on the phone.
+
+## Where to pick up
+
+1. Ask the user what they hit while testing on the phone (logs: `adb logcat -s WalkcodeTerm AndroidRuntime`).
+2. Candidate work: agent preset editor, import/export of hosts/workspaces, in-app log viewer,
+   configurable per-session quiet/alert behaviour, tailnet address for the VM.
+3. Before changing behaviour re-run the relevant `tools/spikes/*.ps1` (list in AGENTS.md).

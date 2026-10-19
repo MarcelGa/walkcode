@@ -38,7 +38,16 @@ pwsh -File tools\spikes\spike1.ps1            # sshj + Keystore Ed25519 login
 pwsh -File tools\spikes\spike2.ps1            # terminal attached to tmux/psmux
 pwsh -File tools\spikes\spike3.ps1            # host poller -> unread/quiet/attention
 pwsh -File tools\spikes\m1-connector.ps1      # TOFU pinning + LAN/tailnet fallback
+pwsh -File tools\spikes\m2-launch.ps1         # session launcher: create/list/resume/kill (Docker tmux)
+pwsh -File tools\spikes\m2-launch-windows.ps1 # same against this Windows desktop (psmux)
+pwsh -File tools\spikes\m2-ui.ps1             # Compose UI end to end (Docker host)
+pwsh -File tools\spikes\m3-monitor.ps1        # background alerts, reconnect (~4 min, Docker host)
+pwsh -File tools\spikes\m3-timeout.ps1        # Android 15 dataSync time-limit pause and resume
+pwsh -File tools\spikes\m4-settings.ps1       # rename, settings, battery prompt
 ```
+
+A new emulator/phone has a new Keystore key: run `m1-connector.ps1` once so it is authorized on
+the Docker host. For testing on the real phone see [docs/DEVICE-TESTING.md](docs/DEVICE-TESTING.md).
 
 ## Layout
 
@@ -120,6 +129,24 @@ Design model: **Hosts** (SSH machines) â†’ **Projects** (local colour labels) â†
   fields and forces every field but the title non-empty.
 - **Windows OpenSSH runs commands via `cmd.exe` (8191-char limit).** The Windows
   poller is base64/UTF-16LE and asserted `<= 8000` chars.
+- **Windows sessions start through `cmd /c "set WALKCODE_SESSION=1&& pwsh -File shell-init.ps1"`**
+  so the user's PowerShell profile (which runs before `-File`) can see the marker and skip
+  Nerd Font prompts / ListView prediction (they garble the phone terminal).
+- **Room schema is version 2** (`Session.label`); there is `MIGRATION_1_2`, `exportSchema=false`.
+  Bump the version and add a migration for any entity change.
+- **`MonitorService` must not read a stale `Monitor.watchedByHost`**: it is `null` until computed
+  and reset on `stop()`; an empty map means "nothing watched" and stops the service.
+- **Tooling gotchas (Windows dev box):**
+  - Git Bash rewrites `/sdcard/...` paths passed to `adb`; run adb from PowerShell.
+  - `sed` in Git Bash eats backslashes and `&`; use the Edit tool for anything with escapes.
+  - Read `uiautomator` dumps as UTF-8 files (`adb pull` then `Get-Content -Encoding UTF8`); piping
+    them through the console turns glyphs like the pencil into `?`.
+  - `adb shell "dumpsys deviceidle whitelist -pkg"` needs the whole command as one quoted string.
+  - Pass `sdkmanager` package names (they contain `;`) via `cmd /c` with escaped quotes.
+  - Compose pickers expose no text to uiautomator: tap the clickable, text-less `View` overlays
+    in form order (see `tools/spikes/m2-ui.ps1`, `m4-settings.ps1`).
+  - A Samsung phone drops USB debugging when its USB mode/tethering changes; wireless debugging
+    (`adb pair` / `adb connect`, serial is the mDNS name) is the fallback.
 
 ## Status
 
