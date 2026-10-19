@@ -37,7 +37,9 @@ class MuxCommands(private val shell: ShellKind) {
         // The shell is started through the init script so Ctrl+C reaches the agents.
         ShellKind.PSMUX ->
             "psmux new-session -d -s $name -c ${windowsPath(directory)} -x 80 -y 24 " +
-                "pwsh -NoLogo -NoExit -File %USERPROFILE%\\.config\\walkcode\\shell-init.ps1"
+                // The marker variable has to be set before pwsh starts: the user's profile runs first
+                // and may use it to pick a plain prompt for the phone terminal.
+                "cmd /c \"set WALKCODE_SESSION=1&& pwsh -NoLogo -NoExit -File %USERPROFILE%\\.config\\walkcode\\shell-init.ps1\""
     }
 
     /** Types [commandLine] into the session and submits it. */

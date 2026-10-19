@@ -38,6 +38,7 @@ class MuxCommandsTest {
         val c = MuxCommands(ShellKind.PSMUX)
         assertFalse(c.usesPty)
         assertTrue(c.newSession("wc-a-1", "~/x").contains("shell-init.ps1"))
+        assertTrue(c.newSession("wc-a-1", "~/x").contains("set WALKCODE_SESSION=1&&"))
         assertEquals("psmux send-keys -t wc-a-1 -H 0d", c.sendCommand("wc-a-1", "claude").last())
         assertEquals("psmux attach -t wc-a-1", c.attach("wc-a-1"))
     }
