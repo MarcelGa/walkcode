@@ -74,7 +74,8 @@ fun HostsScreen(repo: WalkcodeRepository, monitor: Monitor, onOpenHost: (Long?) 
         SectionLabel("Device key")
         ListRow(
             title = "Ed25519 · generated on device",
-            subtitle = pubKey?.let { it.take(48) + "…" } ?: "unavailable",
+            subtitle = pubKey ?: "unavailable",
+            subtitleLines = 5,
             trailing = {
                 Pill("Copy pubkey", onClick = { pubKey?.let { copy(context, "device key", it) } })
             },

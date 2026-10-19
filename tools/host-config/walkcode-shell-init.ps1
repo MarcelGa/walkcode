@@ -7,3 +7,7 @@ Add-Type -Namespace Walkcode -Name Console -MemberDefinition @'
 public static extern bool SetConsoleCtrlHandler(System.IntPtr handler, bool add);
 '@
 [void][Walkcode.Console]::SetConsoleCtrlHandler([IntPtr]::Zero, $false)
+
+# Lets the user's profile adapt to the phone terminal, e.g. skip glyph-heavy prompt themes and
+# ListView predictions:  if ($env:WALKCODE_SESSION) { ...plain prompt... } else { oh-my-posh init ... }
+$env:WALKCODE_SESSION = '1'
