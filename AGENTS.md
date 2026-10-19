@@ -5,7 +5,7 @@ Personal, native-Android app to **run, watch and interact with CLI AI agents**
 (Windows) on your own hosts, over SSH. No backend. Sideloaded — never published to
 Play, so **do not add Play/GMS dependencies**.
 
-Repo root: `C:\Users\galov\sources\personal\walkcode`. Package: `dev.walkcode.app`.
+Package: `dev.walkcode.app`.
 
 ## Build & test
 
@@ -80,8 +80,8 @@ Design model: **Hosts** (SSH machines) → **Projects** (local colour labels) �
 | Host | Address (from emulator) | From workstation | User | Mux |
 |------|-------------------------|------------------|------|-----|
 | Docker test host | `10.0.2.2:2222` | `127.0.0.1:2222` | `dev` | tmux 3.4 |
-| Homelab VM | `192.168.1.88:22` (`dev.local`) | `dev.local:22` | `marcel` | tmux 3.6 |
-| Windows desktop | `10.0.2.2:22` | `localhost:22`, tailnet `100.66.206.62` | `galov` | psmux |
+| Homelab VM | `<vm-lan-ip>:22` (`dev.local`) | `dev.local:22` | `<vm-user>` | tmux 3.6 |
+| Windows desktop | `10.0.2.2:22` | `localhost:22`, tailnet `<tailnet-ip>` | `<windows-user>` | psmux |
 
 - Start the Docker host: `docker compose up -d` in `tools/testhost`.
 - Workstation SSH key for driving hosts: `~/.ssh/walkcode_test`

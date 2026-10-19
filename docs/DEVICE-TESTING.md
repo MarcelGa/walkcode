@@ -33,8 +33,8 @@ A new device key (new phone, reinstall after uninstall, new emulator) must be re
 
 | Host | LAN | Tailnet | User | Mux | Notes |
 |------|-----|---------|------|-----|-------|
-| desktop (this Windows PC) | 192.168.1.56 | 100.66.206.62 | galov | psmux | key in administrators_authorized_keys |
-| homelab-vm | dev.local (192.168.1.88) | none yet | marcel | tmux 3.6 | key in authorized_keys, tmux conf installed |
+| desktop (this Windows PC) | `<lan-ip>` | `<tailnet-ip>` | `<windows-user>` | psmux | key in administrators_authorized_keys |
+| homelab-vm | dev.local (`<vm-lan-ip>`) | none yet | `<vm-user>` | tmux 3.6 | key in authorized_keys, tmux conf installed |
 
 Projects on the phone: `Personal`, `Test` (workspaces `Desktop`, `VM`, plus the user's own).
 `dev.local` only resolves on the home Wi-Fi/LAN; with the work VPN on the VM is unreachable.
