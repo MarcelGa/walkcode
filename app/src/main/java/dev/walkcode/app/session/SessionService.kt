@@ -87,6 +87,16 @@ class SessionService(
         }
     }
 
+    /** Pane text of [session] including recent history, or null if the host refused. */
+    suspend fun capture(client: SSHClient, host: Host, session: Session, history: Int = 300): String? {
+        val mux = MuxCommands(host.shell)
+        val full = exec(client, mux.capture(session.tmuxName, history))
+        if (full.status == 0) return full.output
+        // Some multiplexer builds (psmux) may not take -S; the visible screen is still useful.
+        val visible = exec(client, mux.capture(session.tmuxName, null))
+        return if (visible.status == 0) visible.output else null
+    }
+
     fun close(client: SSHClient) {
         // Disconnecting sends packets, which Android forbids on the main thread.
         Thread { runCatching { client.disconnect() } }.start()

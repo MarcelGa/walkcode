@@ -93,7 +93,6 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
                     }
                     Route.Settings -> {
                         SettingsScreen(settings)
-                        Spacer1(Modifier.weight(1f))
                     }
                     is Route.Project -> ProjectDetailScreen(
                         repo, monitor, r.id, onBack = ::pop,
@@ -111,7 +110,7 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
                         onDeleted = { pop(); pop() },
                     )
                     is Route.HostEditor -> HostEditorScreen(repo, r.id, onDone = ::pop)
-                    is Route.Terminal -> TerminalScreen(repo, service, monitor, r.sessionId, r.resume, onBack = ::pop)
+                    is Route.Terminal -> TerminalScreen(repo, service, monitor, settings, r.sessionId, r.resume, onBack = ::pop)
                 }
                 if (current.isTopLevel) BottomNav(current, ::selectTab)
             }

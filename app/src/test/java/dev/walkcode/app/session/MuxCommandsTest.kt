@@ -42,4 +42,9 @@ class MuxCommandsTest {
         assertEquals("psmux send-keys -t wc-a-1 -H 0d", c.sendCommand("wc-a-1", "claude").last())
         assertEquals("psmux attach -t wc-a-1", c.attach("wc-a-1"))
     }
+
+    @Test fun captureReadsHistoryOrJustTheScreen() {
+        assertEquals("tmux capture-pane -p -J -t wc-a-1 -S -300", MuxCommands(ShellKind.TMUX).capture("wc-a-1", 300))
+        assertEquals("psmux capture-pane -p -J -t wc-a-1", MuxCommands(ShellKind.PSMUX).capture("wc-a-1", null))
+    }
 }

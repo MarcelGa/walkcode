@@ -3,11 +3,17 @@ package dev.walkcode.app.ui
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.produceState
+import dev.walkcode.app.walk.Speaker
+import dev.walkcode.app.walk.VoiceCatalog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,10 +34,12 @@ import dev.walkcode.app.monitor.Battery
 private val QuietChoices = listOf(5, 10, 15, 30, 60, 120)
 
 @Composable
-fun SettingsScreen(settings: AppSettings) {
+fun ColumnScope.SettingsScreen(settings: AppSettings) {
     val context = LocalContext.current
     val quietSec by settings.quietAfterSec.collectAsState()
     val quietOn by settings.quietAlerts.collectAsState()
+    val walkOn by settings.walkMode.collectAsState()
+    val autoSend by settings.dictationAutoSend.collectAsState()
 
     // The exemption is granted in a system dialog, so re-read it whenever we come back.
     var unrestricted by remember { mutableStateOf(Battery.isUnrestricted(context)) }
@@ -45,7 +53,8 @@ fun SettingsScreen(settings: AppSettings) {
     }
 
     TopBar("Settings")
-    Column(Modifier.verticalScroll(rememberScrollState())) {
+    // weight: take only the space above the tab bar, otherwise a long list pushes the bar off screen.
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
         SectionLabel("Alerts")
         ListRow(
             title = "Quiet alerts",
@@ -63,6 +72,22 @@ fun SettingsScreen(settings: AppSettings) {
             }
         }
 
+        SectionLabel("Walk mode")
+        ListRow(
+            title = "Read responses aloud",
+            subtitle = "Speak new agent output once it goes quiet (also the Walk button in a terminal)",
+            subtitleLines = 3,
+            trailing = { Switch(checked = walkOn, onCheckedChange = settings::setWalkMode) },
+        )
+        ListRow(
+            title = "Send dictation automatically",
+            subtitle = "Press Enter after the dictated text; off leaves it in the prompt for you to check",
+            subtitleLines = 3,
+            trailing = { Switch(checked = autoSend, onCheckedChange = settings::setDictationAutoSend) },
+        )
+
+        VoiceSettings(settings)
+
         SectionLabel("Background")
         ListRow(
             title = "Battery optimisation",
@@ -71,5 +96,104 @@ fun SettingsScreen(settings: AppSettings) {
             subtitleLines = 3,
             trailing = { if (!unrestricted) Pill("Allow", onClick = { context.startActivity(Battery.requestIntent(context)) }) },
         )
+    }
+}
+
+private val RateChoices = listOf(0.8f, 1.0f, 1.2f, 1.5f, 2.0f)
+
+/** Null id means "phone default". */
+@Composable
+private fun ChoiceDialog(
+    title: String,
+    options: List<VoiceCatalog.Choice>,
+    selected: String?,
+    onPick: (String?) -> Unit,
+    onTest: ((String) -> Unit)? = null,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            var query by remember { mutableStateOf("") }
+            Column {
+                if (options.size > 6) FormField("Filter", query, { query = it }, placeholder = "e.g. english female")
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                // The default entry only makes sense in the unfiltered list.
+                val shown = VoiceCatalog.filter(options, query)
+                val all = if (query.isBlank()) listOf(VoiceCatalog.Choice("", "Phone default")) + shown else shown
+                if (all.isEmpty()) Text("No match", color = WC.Muted, modifier = Modifier.padding(12.dp))
+                for (o in all) {
+                    val id = o.id.ifEmpty { null }
+                    ListRow(
+                        title = o.label,
+                        onClick = { onPick(id); onDismiss() },
+                        trailing = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                if (onTest != null && id != null) Pill("Test", onClick = { onTest(id) })
+                                if (id == selected) Text("●", color = WC.Accent)
+                            }
+                        },
+                    )
+                }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun VoiceSettings(settings: AppSettings) {
+    val context = LocalContext.current
+    val engine by settings.ttsEngine.collectAsState()
+    val voice by settings.ttsVoice.collectAsState()
+    val rate by settings.ttsRate.collectAsState()
+    val recognizer by settings.recognizer.collectAsState()
+    val lang by settings.recognitionLang.collectAsState()
+    var dialog by remember { mutableStateOf<String?>(null) }
+
+    // Loaded off a throwaway TTS instance; reloaded when the engine changes because voices belong to one engine.
+    val info by produceState<VoiceCatalog.TtsInfo?>(null, engine) { value = VoiceCatalog.tts(context, engine) }
+    val recognizers = remember { VoiceCatalog.recognizers(context) }
+    val speaker = remember { Speaker(context, settings) }
+    DisposableEffect(Unit) { onDispose { speaker.shutdown() } }
+
+    val engines = info?.engines.orEmpty()
+    val voices = info?.voices.orEmpty().sortedBy { VoiceCatalog.voiceLabel(it) }
+    val languages = VoiceCatalog.languages(info?.voices.orEmpty())
+
+    SectionLabel("Voice")
+    ListRow("Speech engine", engines.firstOrNull { it.id == engine }?.label ?: "Phone default", onClick = { dialog = "engine" })
+    ListRow(
+        "Voice",
+        voices.firstOrNull { it.name == voice }?.let(VoiceCatalog::voiceLabel) ?: "Engine default",
+        onClick = { dialog = "voice" },
+    )
+    Text("Speed", color = WC.Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 20.dp, top = 8.dp))
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (r in (RateChoices + rate).distinct().sorted()) Pill("${r}x", hot = r == rate, onClick = { settings.setTtsRate(r) })
+        Pill("Test", onClick = { speaker.speak("This is how responses will sound while you walk.") })
+    }
+    ListRow(
+        "Dictation recognizer",
+        recognizers.firstOrNull { it.id == recognizer }?.label ?: "Phone default (on-device if available)",
+        onClick = { dialog = "recognizer" },
+    )
+    ListRow(
+        "Dictation language",
+        languages.firstOrNull { it.id == lang }?.label ?: lang ?: "Phone language",
+        onClick = { dialog = "lang" },
+    )
+
+    when (dialog) {
+        "engine" -> ChoiceDialog("Speech engine", engines, engine, settings::setTtsEngine) { dialog = null }
+        "voice" -> ChoiceDialog(
+            "Voice", voices.map { VoiceCatalog.Choice(it.name, VoiceCatalog.voiceLabel(it)) }, voice, settings::setTtsVoice,
+            onTest = { name -> voices.firstOrNull { it.name == name }?.let { speaker.preview(VoiceCatalog.sampleFor(it), name) } },
+        ) { speaker.stop(); dialog = null }
+        "recognizer" -> ChoiceDialog("Dictation recognizer", recognizers, recognizer, settings::setRecognizer) { dialog = null }
+        "lang" -> ChoiceDialog("Dictation language", languages, lang, settings::setRecognitionLang) { dialog = null }
     }
 }

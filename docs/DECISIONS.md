@@ -93,3 +93,9 @@ revisit. Each line is a decision, not an open question.
   alerts can be switched off; the battery-optimisation prompt is shown **once**, on the first Watch.
 - Windows sessions get a **`WALKCODE_SESSION=1`** marker so users can adapt their PowerShell profile.
 - App icon: terminal prompt `>_` (green on the app's dark background), adaptive + monochrome.
+- **Walk mode** (per-app toggle in the terminal bar + Settings): when a session's screen has been quiet
+  for 2.5 s after changing, the new text is read aloud with the platform TTS; a Dictate button records
+  speech (platform `SpeechRecognizer`, on-device if available, no GMS dependency) and types it into the
+  focused session, pressing Enter afterwards unless "Send dictation automatically" is off.
+  Response text comes from `capture-pane` over a second SSH channel (the attached tmux view has no
+  scrollback), diffed against a baseline taken before the user's last message.

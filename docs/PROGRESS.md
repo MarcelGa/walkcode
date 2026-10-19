@@ -210,3 +210,16 @@ host's `administrators_authorized_keys`, which needs an elevated shell).
 2. Candidate work: agent preset editor, import/export of hosts/workspaces, in-app log viewer,
    configurable per-session quiet/alert behaviour, tailnet address for the VM.
 3. Before changing behaviour re-run the relevant `tools/spikes/*.ps1` (list in AGENTS.md).
+
+## Walk mode (2026-10-19)
+
+`walk/` (`ResponseExtractor`, `Speaker`, `Dictation`) + terminal bar buttons (Walk on/off, Dictate/Done,
+Hush) + Settings section. `MuxCommands.capture` / `SessionService.capture` read pane history.
+**Verified:** JVM tests (`ResponseExtractorTest`, `MuxCommandsTest`) and `assembleDebug`.
+**Not verified on a device:** TTS output, mic permission flow, recognizer availability on the S25,
+and how well the extractor filters real Claude Code / opencode screens (tune the regexes in
+`ResponseExtractor` from real captures). Not built: hands-free auto-listen after a spoken reply.
+Voice settings (Settings > Voice): TTS engine, voice, speed (with a Test pill), dictation recognizer and
+language. Stored in `AppSettings`, null = phone default; listed from the installed engines/services via
+`walk/VoiceCatalog`. Changing the engine clears the chosen voice. Same verification level as above (build
+and JVM tests only).

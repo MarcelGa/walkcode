@@ -30,6 +30,20 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.terminal.TerminalSession
 import com.termux.view.TerminalView
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.SystemClock
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.core.content.ContextCompat
+import dev.walkcode.app.data.AppSettings
+import dev.walkcode.app.walk.Dictation
+import dev.walkcode.app.walk.ResponseExtractor
+import dev.walkcode.app.walk.Speaker
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import dev.walkcode.app.data.WalkcodeRepository
 import dev.walkcode.app.data.displayName
 import dev.walkcode.app.monitor.Monitor
@@ -55,6 +69,7 @@ fun ColumnScope.TerminalScreen(
     repo: WalkcodeRepository,
     service: SessionService,
     monitor: Monitor,
+    settings: AppSettings,
     sessionId: Long,
     resume: Boolean,
     onBack: () -> Unit,
@@ -84,14 +99,87 @@ fun ColumnScope.TerminalScreen(
     bridge.onModifiers = { c, a -> ctrl = c; alt = a }
     bridge.onTitle = { title = it }
     bridge.onFinished = { state = TermState.Ended(it) }
+    val walk = remember { WalkState() }
     val controller = remember {
         TerminalController(context, terminalView, object : TerminalController.Listener {
             override fun onTitleChanged(title: String?) = bridge.onTitle(title)
             override fun onFinished(session: TerminalSession) =
                 bridge.onFinished(session.exitReason ?: "session ended (exit ${session.exitStatus})")
             override fun onModifiersChanged(ctrl: Boolean, alt: Boolean) = bridge.onModifiers(ctrl, alt)
+            override fun onScreenChanged() { walk.lastChange = SystemClock.uptimeMillis(); walk.dirty = true }
         })
     }
+
+    // --- Walk mode: read responses aloud, dictate input ---------------------------------------
+    val scope = rememberCoroutineScope()
+    val walkOn by settings.walkMode.collectAsState()
+    val autoSend by settings.dictationAutoSend.collectAsState()
+    var partial by remember { mutableStateOf<String?>(null) }
+    val speaker = remember { Speaker(context, settings) }
+    val dictation = remember {
+        Dictation(
+            context,
+            settings,
+            onPartial = { partial = it },
+            onResult = { text ->
+                partial = null
+                scope.launch { walk.send(text) }
+            },
+            onFailure = { msg ->
+                partial = null
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            },
+        )
+    }
+    walk.sendText = { text ->
+        controller.sendText(text)
+        if (settings.dictationAutoSend.value) { delay(SUBMIT_DELAY_MS); controller.submit() }
+    }
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) { speaker.stop(); dictation.start(); partial = "" }
+        else Toast.makeText(context, "Microphone permission denied", Toast.LENGTH_SHORT).show()
+    }
+    fun toggleDictation() {
+        if (partial != null) { dictation.stop(); return }
+        if (!dictation.available()) {
+            Toast.makeText(context, "No speech recognizer on this device", Toast.LENGTH_LONG).show()
+        } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            // Barge-in: stop talking before listening or the mic hears the phone.
+            speaker.stop(); dictation.start(); partial = ""
+        } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { dictation.cancel(); speaker.shutdown() }
+    }
+    LaunchedEffect(walkOn) { if (!walkOn) speaker.stop() }
+
+    // Once the screen has been quiet for a moment after changing, speak what is new. Reads the
+    // multiplexer's pane (with history) rather than the emulator, which only holds the live screen.
+    LaunchedEffect(walkOn, attachment, session?.id, host?.id) {
+        val a = attachment ?: return@LaunchedEffect
+        val s = session ?: return@LaunchedEffect
+        val h = host ?: return@LaunchedEffect
+        if (!walkOn) return@LaunchedEffect
+        walk.baseline = runCatching { service.capture(a.client, h, s) }.getOrNull()
+        walk.dirty = false
+        while (isActive) {
+            delay(POLL_MS)
+            if (!walk.dirty || SystemClock.uptimeMillis() - walk.lastChange < SETTLE_MS) continue
+            walk.dirty = false
+            val now = runCatching { service.capture(a.client, h, s) }.getOrNull() ?: continue
+            val before = walk.baseline
+            walk.baseline = now
+            if (before == null) continue
+            val text = ResponseExtractor.newText(before, now, walk.sent)
+            if (text.isNotBlank()) speaker.speak(text)
+        }
+    }
+    walk.capture = {
+        val a = attachment; val s = session; val h = host
+        if (a != null && s != null && h != null) runCatching { service.capture(a.client, h, s) }.getOrNull() else null
+    }
+    walk.active = walkOn
 
     LaunchedEffect(session?.id, host?.id, attempt) {
         val s = session ?: return@LaunchedEffect
@@ -144,6 +232,37 @@ fun ColumnScope.TerminalScreen(
             TermState.Attached -> {}
         }
     }
+    partial?.let {
+        Text(
+            if (it.isEmpty()) "Listening… tap Done when finished" else it,
+            color = WC.Accent, fontSize = 13.sp,
+            modifier = Modifier.fillMaxWidth().background(WC.Panel2).padding(horizontal = 14.dp, vertical = 6.dp),
+        )
+    }
+    Row(
+        Modifier.fillMaxWidth().background(WC.Panel).padding(start = 6.dp, top = 6.dp, end = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        val accent = ButtonDefaults.filledTonalButtonColors(containerColor = WC.Accent, contentColor = androidx.compose.ui.graphics.Color(0xFF04120A))
+        val idle = ButtonDefaults.filledTonalButtonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF1B232E), contentColor = WC.Fg)
+        FilledTonalButton(
+            onClick = { settings.setWalkMode(!walkOn) },
+            colors = if (walkOn) accent else idle,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+        ) { Text(if (walkOn) "Walk: on" else "Walk: off", fontSize = 13.sp) }
+        FilledTonalButton(
+            onClick = ::toggleDictation,
+            colors = if (partial != null) accent else idle,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+        ) { Text(if (partial != null) "Done" else "Dictate", fontSize = 13.sp) }
+        if (walkOn) {
+            FilledTonalButton(
+                onClick = { speaker.stop() },
+                colors = idle,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+            ) { Text("Hush", fontSize = 13.sp) }
+        }
+    }
     Row(
         Modifier.fillMaxWidth().background(WC.Panel).horizontalScroll(rememberScrollState()).padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -167,6 +286,31 @@ private fun Overlay(message: String, action: String?, onAction: (() -> Unit)?) {
             Text(message, color = WC.Fg)
             if (action != null && onAction != null) PrimaryButton(action, onClick = onAction)
         }
+    }
+}
+
+private const val POLL_MS = 500L
+/** Screen quiet this long after a change counts as "the agent finished talking". */
+private const val SETTLE_MS = 2500L
+/** A CR in the same burst as the text reads as a pasted newline to some agents; give it a beat. */
+private const val SUBMIT_DELAY_MS = 250L
+
+/** Walk-mode bookkeeping shared between the terminal callbacks and the watcher loop. */
+private class WalkState {
+    @Volatile var lastChange = 0L
+    @Volatile var dirty = false
+    var active = false
+    /** Pane text at the last point whose output was already handled (spoken or ours). */
+    var baseline: String? = null
+    /** Last dictated text, so its echo in the agent's input line is not read back. */
+    var sent: String? = null
+    var capture: suspend () -> String? = { null }
+    var sendText: suspend (String) -> Unit = {}
+
+    suspend fun send(text: String) {
+        // Re-baseline just before typing so only the agent's reply counts as new.
+        if (active) { capture()?.let { baseline = it }; sent = text; dirty = false }
+        sendText(text)
     }
 }
 

@@ -30,6 +30,14 @@ class MuxCommands(private val shell: ShellKind) {
         ShellKind.PSMUX -> "psmux attach -t $name"
     }
 
+    /**
+     * Dumps the pane text with wrapped lines joined. The attached terminal is an alternate
+     * screen without scrollback, so history can only be read from the multiplexer itself.
+     * [history] adds that many lines above the visible screen (null: visible screen only).
+     */
+    fun capture(name: String, history: Int?): String =
+        "$mux capture-pane -p -J -t $name" + if (history != null) " -S -$history" else ""
+
     /** Creates a detached session in [directory] (80x24; the attach resizes it to the phone). */
     fun newSession(name: String, directory: String): String = when (shell) {
         ShellKind.TMUX ->

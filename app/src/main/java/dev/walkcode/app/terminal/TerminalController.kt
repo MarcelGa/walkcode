@@ -26,6 +26,7 @@ class TerminalController(
     interface Listener {
         fun onTitleChanged(title: String?) {}
         fun onBell() {}
+        fun onScreenChanged() {}
         fun onFinished(session: TerminalSession) {}
         fun onModifiersChanged(ctrl: Boolean, alt: Boolean) {}
     }
@@ -58,6 +59,11 @@ class TerminalController(
     fun sendBytes(bytes: ByteArray) {
         view.currentSession?.write(bytes, 0, bytes.size)
     }
+
+    /** Types synthetic text (dictation); [submit] follows separately as a raw CR, which hosts accept as Enter. */
+    fun sendText(text: String) = sendBytes(text.toByteArray(Charsets.UTF_8))
+
+    fun submit() = sendBytes(byteArrayOf(13))
 
     fun showKeyboard() {
         view.requestFocus()
@@ -92,7 +98,10 @@ class TerminalController(
 
     // --- TerminalSessionClient ------------------------------------------------------------
 
-    override fun onTextChanged(changedSession: TerminalSession) = view.onScreenUpdated()
+    override fun onTextChanged(changedSession: TerminalSession) {
+        view.onScreenUpdated()
+        listener.onScreenChanged()
+    }
     override fun onTitleChanged(changedSession: TerminalSession) = listener.onTitleChanged(changedSession.title)
     override fun onSessionFinished(finishedSession: TerminalSession) = listener.onFinished(finishedSession)
     override fun onBell(session: TerminalSession) = listener.onBell()
