@@ -4,6 +4,7 @@
 param([string] $Only)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot\..\..").Path
+$script:RequiredLocalEnv = @("WALKCODE_VM_HOST", "WALKCODE_VM_IP", "WALKCODE_VM_USER"); . "$PSScriptRoot\..\Import-LocalEnv.ps1"
 $sdk = "$env:LOCALAPPDATA\Android\Sdk"
 $adb = "$sdk\platform-tools\adb.exe"
 $out = "$root\build\spike2"
@@ -31,16 +32,16 @@ function Tap-Text([string] $text) {
     & $adb shell input tap ([int](($n[0] + $n[2]) / 2)) ([int](($n[1] + $n[3]) / 2))
 }
 
-$vmIp = (Resolve-DnsName dev.local -Type A -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress
-if (-not $vmIp) { $vmIp = '192.168.1.88' }
+$vmIp = (Resolve-DnsName $env:WALKCODE_VM_HOST -Type A -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress
+if (-not $vmIp) { $vmIp = $env:WALKCODE_VM_IP }
 $winAgent = "$root\tools\testhost\fake-agent.ps1"
 
 $hosts = @(
     @{ id = 'docker'; host = '10.0.2.2'; port = 2222; user = 'dev'; mux = 'tmux'
        run = { param($c) docker exec -u dev walkcode-testhost bash -lc $c }
        agent = 'fake-agent --profile work'; dir = '~/src/tollbff' },
-    @{ id = 'vm'; host = $vmIp; port = 22; user = 'marcel'; mux = 'tmux'
-       run = { param($c) ssh @k marcel@dev.local $c }
+    @{ id = 'vm'; host = $vmIp; port = 22; user = $env:WALKCODE_VM_USER; mux = 'tmux'
+       run = { param($c) ssh @k ${env:WALKCODE_VM_USER}@${env:WALKCODE_VM_HOST} $c }
        agent = 'bash /tmp/walkcode-fake-agent --profile work'; dir = '~' },
     @{ id = 'windows'; host = '10.0.2.2'; port = 22; user = $env:USERNAME; mux = 'psmux'
        run = { param($c) ssh @k "$env:USERNAME@localhost" $c }
@@ -53,8 +54,8 @@ if ($Only) { $hosts = $hosts | Where-Object { $_.id -eq $Only } }
 
 Start-Emulator
 & $adb install -r -t "$root\app\build\outputs\apk\debug\app-debug.apk" | Out-Null
-scp @k "$root\tools\testhost\fake-agent" marcel@dev.local:/tmp/walkcode-fake-agent | Out-Null
-ssh @k marcel@dev.local "sed -i 's/\r$//' /tmp/walkcode-fake-agent" | Out-Null
+scp @k "$root\tools\testhost\fake-agent" ${env:WALKCODE_VM_USER}@${env:WALKCODE_VM_HOST}:/tmp/walkcode-fake-agent | Out-Null
+ssh @k ${env:WALKCODE_VM_USER}@${env:WALKCODE_VM_HOST} "sed -i 's/\r$//' /tmp/walkcode-fake-agent" | Out-Null
 # The Docker test host gets the same Walkcode tmux settings as real hosts.
 docker cp "$root\tools\host-config\walkcode.tmux.conf" walkcode-testhost:/tmp/walkcode.tmux.conf | Out-Null
 docker cp "$root\tools\host-config\install-tmux-conf.sh" walkcode-testhost:/tmp/install-tmux-conf.sh | Out-Null

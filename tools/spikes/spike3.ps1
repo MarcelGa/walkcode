@@ -3,6 +3,7 @@
 param([string] $Only)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot\..\..").Path
+$script:RequiredLocalEnv = @("WALKCODE_VM_HOST", "WALKCODE_VM_IP", "WALKCODE_VM_USER"); . "$PSScriptRoot\..\Import-LocalEnv.ps1"
 $sdk = "$env:LOCALAPPDATA\Android\Sdk"
 $adb = "$sdk\platform-tools\adb.exe"
 
@@ -15,11 +16,11 @@ if (-not ((& $adb devices) -match 'emulator-\d+\s+device')) {
 & $adb install -r -t "$root\app\build\outputs\apk\debug\app-debug.apk" | Out-Null
 & $adb install -r -t "$root\app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk" | Out-Null
 
-$vmIp = (Resolve-DnsName dev.local -Type A -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress
-if (-not $vmIp) { $vmIp = '192.168.1.88' }
+$vmIp = (Resolve-DnsName $env:WALKCODE_VM_HOST -Type A -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress
+if (-not $vmIp) { $vmIp = $env:WALKCODE_VM_IP }
 $hosts = @(
     @{ id = 'docker'; host = '10.0.2.2'; port = '2222'; user = 'dev'; platform = 'posix'; agent = 'fake-agent' },
-    @{ id = 'vm'; host = $vmIp; port = '22'; user = 'marcel'; platform = 'posix'; agent = 'bash /tmp/walkcode-fake-agent' },
+    @{ id = 'vm'; host = $vmIp; port = '22'; user = $env:WALKCODE_VM_USER; platform = 'posix'; agent = 'bash /tmp/walkcode-fake-agent' },
     @{ id = 'windows'; host = '10.0.2.2'; port = '22'; user = $env:USERNAME; platform = 'windows'
        agent = "pwsh -NoProfile -File $root\tools\testhost\fake-agent.ps1" }
 )

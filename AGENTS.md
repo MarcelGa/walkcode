@@ -91,6 +91,17 @@ Design model: **Hosts** (SSH machines) â†’ **Projects** (local colour labels) â†
   `adb shell run-as dev.walkcode.app cat files/device_key.pub` and paste it into
   the host's `authorized_keys`.
 
+## Local setup (personal values, kept out of git)
+
+Real hostnames, IPs and usernames live in two gitignored files, never in tracked docs/scripts:
+
+- `tools/local.env` - read by the `tools/spikes` scripts via `tools/Import-LocalEnv.ps1`
+  (template: `tools/local.env.example`). Real environment variables win over the file.
+- `CLAUDE.local.md` - notes for the agent (host table, device tips); Claude Code loads it
+  automatically each session.
+
+Use `<placeholders>` in anything you commit.
+
 ## Conventions
 
 - Kotlin + Jetpack Compose. `minSdk 35` (Android 15; target device is a Galaxy S25), `targetSdk 36`, **`compileSdk 37`**

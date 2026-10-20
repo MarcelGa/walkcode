@@ -12,3 +12,7 @@ captures/
 .cxx/
 *.apk
 *.aab
+
+# Personal hosts/users for scripts and agent notes (never commit)
+tools/local.env
+CLAUDE.local.md

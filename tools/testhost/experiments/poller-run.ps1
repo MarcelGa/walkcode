@@ -2,10 +2,11 @@
 #   pwsh -File tools\testhost\experiments\poller-run.ps1 -Target vm|docker|windows [-Seconds 25]
 param([Parameter(Mandatory)] [ValidateSet('vm', 'docker', 'windows')] [string] $Target, [int] $Seconds = 25)
 $root = (Resolve-Path "$PSScriptRoot\..\..\..").Path
+$script:RequiredLocalEnv = if ($Target -eq 'vm') { @("WALKCODE_VM_HOST", "WALKCODE_VM_USER") } else { @() }; . "$PSScriptRoot\..\..\Import-LocalEnv.ps1"
 $k = @('-i', "$env:USERPROFILE\.ssh\walkcode_test", '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes',
        '-o', "UserKnownHostsFile=$env:USERPROFILE\.ssh\walkcode_test_known_hosts")
 switch ($Target) {
-    'vm'      { $dest = @('marcel@dev.local'); $mux = 'tmux' }
+    'vm'      { $dest = @("${env:WALKCODE_VM_USER}@${env:WALKCODE_VM_HOST}"); $mux = 'tmux' }
     'docker'  { $dest = @('-p', '2222', 'dev@localhost'); $mux = 'tmux' }
     'windows' { $dest = @("$env:USERNAME@localhost"); $mux = 'psmux' }
 }

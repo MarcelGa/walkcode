@@ -1,11 +1,12 @@
 # Spike 1: sshj + Android Keystore Ed25519 key, end to end on the emulator.
 #   pwsh -File tools\spikes\spike1.ps1 [-Reset] [-Windows]
-# Hosts: Docker test host (10.0.2.2:2222), homelab VM (dev.local -> 192.168.1.88),
+# Hosts: Docker test host (10.0.2.2:2222), homelab VM (WALKCODE_VM_HOST -> WALKCODE_VM_IP),
 # and with -Windows this workstation's OpenSSH (10.0.2.2:22, needs one UAC prompt).
 # -Reset deletes the device key first so generation is exercised.
 param([switch] $Reset, [switch] $Windows)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot\..\..").Path
+$script:RequiredLocalEnv = @("WALKCODE_VM_HOST", "WALKCODE_VM_IP", "WALKCODE_VM_USER"); . "$PSScriptRoot\..\Import-LocalEnv.ps1"
 $sdk = "$env:LOCALAPPDATA\Android\Sdk"
 $adb = "$sdk\platform-tools\adb.exe"
 $testKey = "$env:USERPROFILE\.ssh\walkcode_test"
@@ -52,13 +53,13 @@ if (-not (Select-String -Path $keysFile -SimpleMatch $pub -Quiet)) { Add-Content
 docker exec walkcode-testhost bash -c "grep -qxF '$pub' /home/dev/.ssh/authorized_keys || echo '$pub' >> /home/dev/.ssh/authorized_keys"
 
 # Authorize on the homelab VM.
-ssh @sshOpts marcel@dev.local "grep -qxF '$pub' ~/.ssh/authorized_keys || echo '$pub' >> ~/.ssh/authorized_keys"
-$vmIp = (Resolve-DnsName dev.local -Type A -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress
-if (-not $vmIp) { $vmIp = '192.168.1.88' }
+ssh @sshOpts ${env:WALKCODE_VM_USER}@${env:WALKCODE_VM_HOST} "grep -qxF '$pub' ~/.ssh/authorized_keys || echo '$pub' >> ~/.ssh/authorized_keys"
+$vmIp = (Resolve-DnsName $env:WALKCODE_VM_HOST -Type A -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress
+if (-not $vmIp) { $vmIp = $env:WALKCODE_VM_IP }
 
 $targets = @(
     @{ name = 'docker test host'; host = '10.0.2.2'; port = '2222'; user = 'dev'; cmd = 'tmux -V; uname -sr' },
-    @{ name = 'homelab VM'; host = $vmIp; port = '22'; user = 'marcel'; cmd = 'tmux -V; uname -sr' }
+    @{ name = 'homelab VM'; host = $vmIp; port = '22'; user = $env:WALKCODE_VM_USER; cmd = 'tmux -V; uname -sr' }
 )
 if ($Windows) {
     $tmp = "$env:TEMP\walkcode-device.pub"; Set-Content $tmp $pub
