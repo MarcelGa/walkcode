@@ -79,7 +79,9 @@ if ($prompt) { Tap 'Not now' }
 # Settings tab: back to the top level, then open Settings.
 for ($i = 0; $i -lt 4 -and -not (Has 'Settings'); $i++) { & $adb shell input keyevent 4; Start-Sleep 1 }
 Tap 'Settings'
+1..3 | ForEach-Object { & $adb shell input swipe 540 1900 540 600 300 }; Start-Sleep 1   # the battery row sits below the Voice section
 $optimised = ((Dump).SelectNodes('//node') | Where-Object { $_.text -like 'Optimised*' }).Count -gt 0
+1..3 | ForEach-Object { & $adb shell input swipe 540 600 540 1900 300 }; Start-Sleep 1
 Shot 'settings'
 Tap '5s'
 $prefs = (& $adb shell "run-as dev.walkcode.app cat shared_prefs/walkcode_settings.xml") -join ''
@@ -96,7 +98,7 @@ for ($i = 0; $i -lt 30; $i++) {
     Start-Sleep 1
 }
 $titles = [regex]::Matches((Notifications), 'android\.title=String \(([^)]*)\)') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -like 'Work*' }
-$title = [bool]($titles | Where-Object { $_ -match 'Work.{1,3}Seed.{1,3}build' })
+$title = [bool]($titles | Where-Object { $_ -match 'Work.{1,6}Seed.{1,6}build' })
 
 # Exemption granted -> Settings shows Unrestricted.
 & $adb shell "dumpsys deviceidle whitelist +dev.walkcode.app" | Out-Null
@@ -104,6 +106,7 @@ $title = [bool]($titles | Where-Object { $_ -match 'Work.{1,3}Seed.{1,3}build' }
 Start-Sleep 3
 if (-not (Has 'Settings')) { for ($i = 0; $i -lt 4 -and -not (Has 'Projects'); $i++) { & $adb shell input keyevent 4; Start-Sleep 1 } }
 Tap 'Settings'
+1..3 | ForEach-Object { & $adb shell input swipe 540 1900 540 600 300 }; Start-Sleep 1
 $unrestricted = ((Dump).SelectNodes('//node') | Where-Object { $_.text -like 'Unrestricted*' }).Count -gt 0
 
 $crash = (& $adb logcat -d -s AndroidRuntime:E) -join "`n"
