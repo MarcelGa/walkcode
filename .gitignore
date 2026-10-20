@@ -16,3 +16,8 @@ captures/
 # Personal hosts/users for scripts and agent notes (never commit)
 tools/local.env
 CLAUDE.local.md
+
+# Release signing (never commit; secrets live in GitHub and ~/.walkcode)
+*.jks
+*.keystore
+keystore.properties

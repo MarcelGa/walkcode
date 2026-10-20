@@ -14,14 +14,35 @@ android {
         applicationId = "dev.walkcode.app"
         minSdk = 35
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI sets these from the tag and the run number. Obtainium and Android only
+        // accept an update whose versionCode is higher than the installed one.
+        versionCode = System.getenv("WALKCODE_VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("WALKCODE_VERSION_NAME") ?: "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Release APKs are signed with a stable key so each new build installs over the
+    // previous one. Without WALKCODE_KEYSTORE_FILE (local builds) they fall back to the
+    // debug key, so the signing key is never silently missing on a published build.
+    signingConfigs {
+        create("release") {
+            System.getenv("WALKCODE_KEYSTORE_FILE")?.let { keystore ->
+                storeFile = file(keystore)
+                storePassword = System.getenv("WALKCODE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("WALKCODE_KEY_ALIAS")
+                keyPassword = System.getenv("WALKCODE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = if (System.getenv("WALKCODE_KEYSTORE_FILE") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
