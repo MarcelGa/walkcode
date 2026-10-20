@@ -60,8 +60,12 @@ class HostMonitor(
     private val tickMs: Long = 5_000,
     private val staleMs: Long = 75_000,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    /** Called with the raw pane title whenever a session's title changes; must not block. */
+    private val onTitle: (session: String, rawTitle: String) -> Unit = { _, _ -> },
 ) {
     private val tracker = ActivityTracker(quietAfterSec = quietAfterSec, quietEnabled = { quietEnabled() })
+    /** Last title reported per session; guarded by [tracker]'s lock like the tracker itself. */
+    private val reportedTitles = HashMap<String, String>()
 
     private val _status = MutableStateFlow<LinkStatus>(LinkStatus.Connecting)
     val status: StateFlow<LinkStatus> = _status
@@ -160,7 +164,15 @@ class HostMonitor(
 
     private fun publish() {
         val now = tracker.hostNow()
-        _activity.value = tracker.panes().groupBy { it.session }.mapValues { (_, panes) ->
+        val bySession = tracker.panes().groupBy { it.session }
+        for ((session, panes) in bySession) {
+            val title = (panes.firstOrNull { it.active } ?: panes.first()).title
+            if (reportedTitles[session] != title) {
+                reportedTitles[session] = title
+                onTitle(session, title)
+            }
+        }
+        _activity.value = bySession.mapValues { (_, panes) ->
             SessionActivity(
                 active = panes.any { it.active },
                 unread = panes.any { it.unread },

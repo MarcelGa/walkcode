@@ -18,9 +18,13 @@ class MuxCommands(private val shell: ShellKind) {
 
     fun hasSession(name: String): String = "$mux has-session -t $name"
 
-    fun listSessions(): String = when (shell) {
-        ShellKind.TMUX -> "tmux list-sessions -F '#{session_name}' 2>/dev/null"
-        ShellKind.PSMUX -> "psmux list-sessions -F \"#{session_name}\" 2>nul"
+    /**
+     * One line per pane: `session|pane title`. Session names never contain `|`, so the first
+     * one splits the line. Lists panes rather than sessions because the title lives on the pane.
+     */
+    fun listPanes(): String = when (shell) {
+        ShellKind.TMUX -> "tmux list-panes -a -F '#{session_name}|#{pane_title}' 2>/dev/null"
+        ShellKind.PSMUX -> "psmux list-panes -a -F \"#{session_name}|#{pane_title}\" 2>nul"
     }
 
     fun killSession(name: String): String = "$mux kill-session -t $name"

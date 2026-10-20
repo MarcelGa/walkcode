@@ -49,4 +49,30 @@ class SessionDisplayNameTest {
     @org.junit.Test fun labelWins() {
         org.junit.Assert.assertEquals("build", session(1, "build").displayName())
     }
+
+    @org.junit.Test fun autoTitleWhenNoLabel() {
+        val s = session(0, null).copy(autoTitle = "Fix login")
+        org.junit.Assert.assertEquals("Fix login", s.displayName())
+    }
+
+    @org.junit.Test fun labelBeatsAutoTitle() {
+        val s = session(0, "build").copy(autoTitle = "Fix login")
+        org.junit.Assert.assertEquals("build", s.displayName())
+    }
+}
+
+class CleanPaneTitleTest {
+    @org.junit.Test fun dropsStatusGlyphs() {
+        org.junit.Assert.assertEquals("Fix login bug", cleanPaneTitle("✳ Fix login bug"))
+        org.junit.Assert.assertEquals("Fix login bug", cleanPaneTitle("⠂ Fix login bug"))
+    }
+
+    @org.junit.Test fun keepsInnerPunctuationAndCollapsesSpaces() {
+        org.junit.Assert.assertEquals("v1.2 (beta) x", cleanPaneTitle("* v1.2   (beta)\tx "))
+    }
+
+    @org.junit.Test fun blankOrSymbolOnlyIsNull() {
+        org.junit.Assert.assertNull(cleanPaneTitle(""))
+        org.junit.Assert.assertNull(cleanPaneTitle("  ✳  "))
+    }
 }

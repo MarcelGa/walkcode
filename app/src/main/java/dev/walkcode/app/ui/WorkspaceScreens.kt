@@ -91,7 +91,9 @@ fun ColumnScope.WorkspaceScreen(
         val h = host ?: return@LaunchedEffect
         state = HostState.Checking
         state = try {
-            HostState.Known(service.runningSessions(h))
+            val panes = service.runningSessions(h)
+            for ((name, title) in panes) repo.recordPaneTitle(name, title)
+            HostState.Known(panes.keys)
         } catch (e: Exception) {
             HostState.Unreachable(describeFailure(e))
         }
@@ -181,7 +183,7 @@ fun ColumnScope.WorkspaceScreen(
         AlertDialog(
             onDismissRequest = { renaming = null },
             title = { Text("Rename session") },
-            text = { FormField("Name", text, { text = it }, placeholder = "#${s.ordinal + 1}") },
+            text = { FormField("Name", text, { text = it }, placeholder = s.autoTitle?.takeIf { it.isNotBlank() } ?: "#${s.ordinal + 1}") },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch { repo.renameSession(s.id, text) }

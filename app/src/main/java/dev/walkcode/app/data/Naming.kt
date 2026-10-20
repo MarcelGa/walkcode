@@ -28,5 +28,17 @@ object Naming {
     }
 }
 
-/** What the UI calls a session: its label, else "#N" (ordinal 0 is #1). */
-fun Session.displayName(): String = label?.takeIf { it.isNotBlank() } ?: "#${ordinal + 1}"
+/**
+ * What the UI calls a session: the user's label, else the agent's title, else "#N" (ordinal 0 is #1).
+ * The label is kept apart from [Session.autoTitle] so clearing the label brings the title back.
+ */
+fun Session.displayName(): String =
+    label?.takeIf { it.isNotBlank() } ?: autoTitle?.takeIf { it.isNotBlank() } ?: "#${ordinal + 1}"
+
+/**
+ * Turns a multiplexer pane title into a session name. Agents such as Claude Code prefix the
+ * title with a status glyph (a spinner or star while working), so leading symbols are dropped.
+ * Null when nothing readable is left, which makes the session fall back to "#N".
+ */
+fun cleanPaneTitle(raw: String): String? =
+    raw.trim().dropWhile { !it.isLetterOrDigit() }.replace(Regex("\\s+"), " ").trim().ifEmpty { null }

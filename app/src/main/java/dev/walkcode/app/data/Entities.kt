@@ -93,6 +93,8 @@ data class Session(
     val watched: Boolean = false,
     /** Optional user-given name shown instead of "#N". */
     val label: String? = null,
+    /** The agent's pane title, cleaned (see [cleanPaneTitle]); shown when there is no label. */
+    val autoTitle: String? = null,
     /** When this session was last viewed, and the screen hash at that moment (unread detection). */
     val lastViewedAt: Long? = null,
     val lastViewedHash: String? = null,

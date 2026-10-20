@@ -32,12 +32,20 @@ class SessionService(
         return connected
     }
 
-    /** Names of the sessions currently alive on the host. */
-    suspend fun runningSessions(host: Host): Set<String> {
+    /**
+     * Sessions currently alive on the host, mapped to the raw title of their first pane
+     * (the active one is not known from this listing, and agents use a single pane).
+     */
+    suspend fun runningSessions(host: Host): Map<String, String> {
         val connected = connect(host)
         return try {
-            val out = exec(connected.client, MuxCommands(host.shell).listSessions()).output
-            out.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+            val out = exec(connected.client, MuxCommands(host.shell).listPanes()).output
+            buildMap {
+                for (line in out.lineSequence()) {
+                    if (!line.contains('|')) continue
+                    putIfAbsent(line.substringBefore('|').trim(), line.substringAfter('|').trimEnd('\r'))
+                }
+            }
         } finally {
             close(connected.client)
         }

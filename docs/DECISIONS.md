@@ -89,6 +89,8 @@ revisit. Each line is a decision, not an open question.
 - Target **Android 15+** (`minSdk 35`) because the device is a Galaxy S25; the dataSync time-limit
   pause is therefore a first-class path.
 - Sessions can carry an optional **label** (shown instead of `#N`, also in alert titles).
+- Without a label, a session is named after its agent's **pane title** (leading status glyphs
+  stripped). It is stored separately (`Session.autoTitle`), so clearing the label restores it.
 - Quiet-alert threshold is **configurable in Settings** (default 15 s, 5-120 s choices) and quiet
   alerts can be switched off; the battery-optimisation prompt is shown **once**, on the first Watch.
 - Windows sessions get a **`WALKCODE_SESSION=1`** marker so users can adapt their PowerShell profile.

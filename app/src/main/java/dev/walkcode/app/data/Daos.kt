@@ -98,6 +98,10 @@ interface SessionDao {
     @Query("UPDATE sessions SET label = :label WHERE id = :id")
     suspend fun setLabel(id: Long, label: String?)
 
+    /** `IS NOT` makes an unchanged title a no-op, so repeated polls do not wake the session flow. */
+    @Query("UPDATE sessions SET autoTitle = :title WHERE tmuxName = :tmuxName AND autoTitle IS NOT :title")
+    suspend fun setAutoTitle(tmuxName: String, title: String?)
+
     @Query("UPDATE sessions SET watched = :watched WHERE id = :id")
     suspend fun setWatched(id: Long, watched: Boolean)
 

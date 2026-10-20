@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Host::class, Project::class, AgentPreset::class, Workspace::class, Session::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -30,6 +30,12 @@ abstract class WalkcodeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE sessions ADD COLUMN autoTitle TEXT")
+            }
+        }
+
         @Volatile private var instance: WalkcodeDatabase? = null
 
         fun get(context: Context): WalkcodeDatabase =
@@ -39,7 +45,7 @@ abstract class WalkcodeDatabase : RoomDatabase() {
 
         private fun build(context: Context): WalkcodeDatabase =
             Room.databaseBuilder(context, WalkcodeDatabase::class.java, NAME)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .addCallback(SeedBuiltInAgents)
                 .build()
 

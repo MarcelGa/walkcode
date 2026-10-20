@@ -133,6 +133,7 @@ class Monitor private constructor(private val context: Context) {
                 onAlert = { _alerts.tryEmit(it) },
                 quietAfterSec = settings.quietAfterSec.value.toLong(),
                 quietEnabled = { settings.quietAlerts.value },
+                onTitle = { session, title -> scope.launch { repo.recordPaneTitle(session, title) } },
             )
             monitor.setFocused(focused)
             val job = scope.launch {

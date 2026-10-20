@@ -96,6 +96,10 @@ class WalkcodeRepository(private val db: WalkcodeDatabase) {
 
     suspend fun renameSession(sessionId: Long, label: String?) = db.sessions().setLabel(sessionId, label?.trim()?.ifEmpty { null })
 
+    /** Stores a pane title from the host as the session's automatic name; a user label still wins. */
+    suspend fun recordPaneTitle(tmuxName: String, rawTitle: String) =
+        db.sessions().setAutoTitle(tmuxName, cleanPaneTitle(rawTitle))
+
     suspend fun updateProject(project: Project): Long = db.projects().upsert(project)
 
     /** Marks a session as seen, storing the screen hash so unread can be recomputed. */
