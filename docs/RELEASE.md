@@ -46,7 +46,14 @@ Get-Content ~\.walkcode\release-signing.env | ForEach-Object {
 3. Obtainium asks to install unknown apps for itself. Allow it.
 4. Install WalkCode from Obtainium. Future releases show up as updates in Obtainium.
 
-**One-time switch from the debug build:** the phone has the debug-signed WalkCode now, and
-Android will not install a release-signed APK over it. Uninstall WalkCode once, then install
-from Obtainium. Afterwards, hosts, projects, sessions and the Keystore SSH key are gone, so
-re-add the phone's public key on each host (see [DEVICE-TESTING.md](DEVICE-TESTING.md)).
+Two apps on the phone, by design:
+
+- **Debug** (`dev.walkcode.app`, label "Walkcode debug"): installed with `adb install -r` for quick
+  testing over wireless debugging. Signed with the local debug key.
+- **Release** (`dev.walkcode.app.release`, label "Walkcode"): installed and updated by Obtainium from
+  GitHub Releases. Signed with the release key. Its own data, so it starts empty.
+
+Moving the setup to the release app: in the debug app, Settings -> Backup -> Export config. In the
+release app, Settings -> Backup -> Import config. Then, for each host, copy its Phone key command
+and run it on the host, because the release app has its own Keystore key. Test connection confirms
+it. Obtainium needs at least one GitHub release (a pushed `v*` tag) before it can install anything.

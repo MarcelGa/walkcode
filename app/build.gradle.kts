@@ -37,7 +37,11 @@ android {
     }
 
     buildTypes {
+        // Debug keeps dev.walkcode.app for ADB, the spike scripts and wireless debugging.
+        // The release build gets its own package so both can stay installed side by side:
+        // different signing key and separate data.
         release {
+            applicationIdSuffix = ".release"
             isMinifyEnabled = false
             signingConfig = if (System.getenv("WALKCODE_KEYSTORE_FILE") != null) {
                 signingConfigs.getByName("release")
