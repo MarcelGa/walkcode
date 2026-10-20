@@ -19,7 +19,14 @@ Target: Android 15+ (`minSdk 35`). The S25 runs Android 16 / One UI 8.5.
 ## Authorizing the phone on a host
 
 The phone's SSH key lives in the Android Keystore. It is shown in full on the Hosts tab
-(**Copy pubkey**). Add that `ssh-ed25519 ... walkcode@android` line to the host:
+(**Copy pubkey**).
+
+Easier: open the host in the app, use **Phone key -> Copy** and paste the one-line command on the
+host (Linux/macOS shell, or PowerShell run as administrator for psmux hosts). Then tap **Test
+connection** to confirm. The command is idempotent, so running it again is harmless. The manual
+steps below do the same by hand:
+
+Add that `ssh-ed25519 ... walkcode@android` line to the host:
 
 - Linux/macOS: `~/.ssh/authorized_keys`.
 - Windows (admin user): `C:\ProgramData\ssh\administrators_authorized_keys` from an *elevated*

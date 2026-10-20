@@ -33,12 +33,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import dev.walkcode.app.data.AppSettings
+import dev.walkcode.app.data.WalkcodeRepository
 import dev.walkcode.app.monitor.Battery
 
 private val QuietChoices = listOf(5, 10, 15, 30, 60, 120)
 
 @Composable
-fun ColumnScope.SettingsScreen(settings: AppSettings) {
+fun ColumnScope.SettingsScreen(repo: WalkcodeRepository, settings: AppSettings) {
     val context = LocalContext.current
     val quietSec by settings.quietAfterSec.collectAsState()
     val quietOn by settings.quietAlerts.collectAsState()
@@ -100,6 +101,8 @@ fun ColumnScope.SettingsScreen(settings: AppSettings) {
             subtitleLines = 3,
             trailing = { if (!unrestricted) Pill("Allow", onClick = { context.startActivity(Battery.requestIntent(context)) }) },
         )
+
+        BackupSection(repo, settings)
     }
 }
 

@@ -92,7 +92,7 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
                         Spacer1(Modifier.weight(1f))
                     }
                     Route.Settings -> {
-                        SettingsScreen(settings)
+                        SettingsScreen(repo, settings)
                     }
                     is Route.Project -> ProjectDetailScreen(
                         repo, monitor, r.id, onBack = ::pop,

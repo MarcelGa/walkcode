@@ -26,7 +26,11 @@ import dev.walkcode.app.data.ShellKind
 import dev.walkcode.app.data.WalkcodeRepository
 import dev.walkcode.app.monitor.LinkStatus
 import dev.walkcode.app.monitor.Monitor
+import dev.walkcode.app.ssh.AuthorizeCommand
 import dev.walkcode.app.ssh.DeviceKey
+import dev.walkcode.app.ssh.HostConnector
+import dev.walkcode.app.ssh.HostUnreachableException
+import net.schmizz.sshj.userauth.UserAuthException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -44,7 +48,7 @@ fun HostsScreen(repo: WalkcodeRepository, monitor: Monitor, onOpenHost: (Long?) 
 
     TopBar("Hosts") { BarAction("+") { onOpenHost(null) } }
     Column(Modifier.verticalScroll(rememberScrollState())) {
-        if (hosts.isEmpty()) EmptyHint("No hosts yet. Add one with +, then copy the device key below into its authorized_keys.")
+        if (hosts.isEmpty()) EmptyHint("No hosts yet. Add one with +, then open it and copy its authorize command to the host.")
         for (h in hosts) {
             val count = workspaces.count { it.hostId == h.id }
             ListRow(
@@ -95,7 +99,14 @@ fun HostEditorScreen(repo: WalkcodeRepository, hostId: Long?, onDone: () -> Unit
     var tailnet by remember { mutableStateOf("") }
     var shell by remember { mutableStateOf(ShellKind.TMUX) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var phoneKey by remember { mutableStateOf<String?>(null) }
+    var testing by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
 
+    LaunchedEffect(Unit) {
+        phoneKey = withContext(Dispatchers.Default) { runCatching { DeviceKey.getOrCreate().openSshPublicKey() }.getOrNull() }
+    }
     LaunchedEffect(hostId) {
         if (hostId != null) {
             repo.host(hostId)?.let { h ->
@@ -123,6 +134,30 @@ fun HostEditorScreen(repo: WalkcodeRepository, hostId: Long?, onDone: () -> Unit
             onSelect = { if (it != null) shell = it },
         )
         existing?.let { h ->
+            SectionLabel("Phone key")
+            ListRow(
+                title = "Authorize command",
+                subtitle = if (h.shell == ShellKind.TMUX) "Paste into a shell on the host" else "Paste into PowerShell on the host, run as administrator",
+                subtitleLines = 2,
+                trailing = {
+                    Pill("Copy", onClick = {
+                        phoneKey?.let { copy(context, "authorize command", AuthorizeCommand.forHost(h.shell, it)) }
+                    })
+                },
+            )
+            PrimaryButton(if (testing) "Testing…" else "Test connection", ghost = true, enabled = !testing && phoneKey != null, onClick = {
+                testing = true
+                scope.launch {
+                    testResult = testConnection(repo, h)
+                    // Pick up a host key pinned by the test, so Save does not write back the old pin.
+                    existing = repo.host(h.id)
+                    testing = false
+                }
+            })
+            testResult?.let {
+                Text(it, color = WC.Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+            }
+
             SectionLabel("Host key")
             val fp = h.hostKeyFingerprint
             Text(
@@ -165,4 +200,21 @@ fun HostEditorScreen(repo: WalkcodeRepository, hostId: Long?, onDone: () -> Unit
 
 fun copy(context: Context, label: String, text: String) {
     context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(label, text))
+}
+
+/** Connects once with this phone's key, the same way the monitor does, and reports the outcome. */
+private suspend fun testConnection(repo: WalkcodeRepository, host: Host): String = try {
+    val connected = HostConnector(DeviceKey.getOrCreate()).connect(host)
+    runCatching { connected.client.close() }
+    if (connected.newlyTrusted) repo.trustHostKey(host.id, connected.hostKey.algorithm, connected.hostKey.fingerprint)
+    "Connected via ${connected.address}. This phone is authorized."
+} catch (e: HostUnreachableException) {
+    // The connector keeps per-address failures; a refused login means the key is not on the host yet.
+    if (e.failures.values.any { it is UserAuthException }) {
+        "Login refused. This phone's key is not on the host yet: run the authorize command there, then test again."
+    } else {
+        describeFailure(e)
+    }
+} catch (e: Exception) {
+    describeFailure(e)
 }

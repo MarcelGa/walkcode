@@ -176,7 +176,19 @@ instead); Windows/psmux monitoring through the service.
 
 All four planned milestones are done. Remaining gaps / ideas: the Android 15 dataSync `onTimeout`
 pause path and Windows monitoring through the service are untested; agent presets cannot be edited in
-the UI yet (only the four built-ins); no import/export of hosts and workspaces.
+the UI yet (only the four built-ins).
+
+## Config export/import (2026-10-20)
+
+Settings -> Backup exports hosts (with pinned host keys), projects, custom agent presets, workspaces
+and settings to `walkcode-config.json`, and imports one back by name (existing names are kept). No
+sessions and no keys. Host editor -> Phone key: a copy-paste command that authorizes this phone's
+key on the host (`ssh/AuthorizeCommand`: POSIX for tmux hosts, PowerShell for psmux hosts), and Test
+connection, which reports whether the key is accepted. Release signing is documented in
+[RELEASE.md](RELEASE.md).
+**Verified:** JVM tests (`ConfigCodecTest`, `AuthorizeCommandTest`) and `assembleDebug`.
+**Not verified:** the import/export round trip on a device, the file pickers, and the Test connection
+button against a real host (run the Phone key command on the Docker test host first).
 
 ## Target: Android 15+ (Galaxy S25)
 

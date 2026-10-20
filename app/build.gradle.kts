@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -86,6 +87,9 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+
+    // Config export/import file only; kotlinx.serialization is JetBrains, not Play/GMS.
+    implementation(libs.kotlinx.serialization.json)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
