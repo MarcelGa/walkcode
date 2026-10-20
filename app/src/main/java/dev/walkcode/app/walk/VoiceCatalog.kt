@@ -3,7 +3,12 @@ package dev.walkcode.app.walk
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.speech.ModelDownloadListener
 import android.speech.RecognitionService
+import android.speech.RecognitionSupport
+import android.speech.RecognitionSupportCallback
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -13,7 +18,8 @@ import kotlin.coroutines.resume
 /** What the user can pick from in Settings, as installed on this phone. */
 object VoiceCatalog {
 
-    class Choice(val id: String, val label: String)
+    /** [missing]: a recognition language not installed yet, so it can be downloaded. */
+    class Choice(val id: String, val label: String, val missing: Boolean = false)
 
     class TtsInfo(val engines: List<Choice>, val voices: List<Voice>)
 
@@ -45,11 +51,74 @@ object VoiceCatalog {
         }.distinctBy { it.id }
     }
 
-    /** Languages offered for dictation: the ones the TTS voices cover, which is what the user has set up. */
-    fun languages(voices: List<Voice>): List<Choice> =
-        voices.map { it.locale }.distinct()
-            .map { Choice(it.toLanguageTag(), it.getDisplayName(Locale.getDefault())) }
-            .sortedBy { it.label }
+    /**
+     * Languages the dictation recognizer can use, labelled with whether each is already installed.
+     * Asks the same recognizer [Dictation] uses ([chosen], else on-device), so the list matches what dictation accepts.
+     * Empty if the recognizer cannot answer.
+     */
+    suspend fun dictationLanguages(context: Context, chosen: ComponentName?): List<Choice> =
+        suspendCancellableCoroutine { cont ->
+            val r = recognizer(context, chosen)
+            cont.invokeOnCancellation { r.destroy() }
+            r.checkRecognitionSupport(
+                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM),
+                context.mainExecutor,
+                object : RecognitionSupportCallback {
+                    override fun onSupportResult(support: RecognitionSupport) {
+                        r.destroy()
+                        val installed = support.installedOnDeviceLanguages.toSet()
+                        val pending = support.pendingOnDeviceLanguages.toSet()
+                        val choices = (support.supportedOnDeviceLanguages + support.installedOnDeviceLanguages + support.pendingOnDeviceLanguages)
+                            .distinct()
+                            .map { tag ->
+                                val name = Locale.forLanguageTag(tag).getDisplayName(Locale.getDefault())
+                                val status = when (tag) {
+                                    in installed -> "installed"
+                                    in pending -> "downloading"
+                                    else -> "not installed"
+                                }
+                                Choice(tag, "$name · $status", missing = status == "not installed")
+                            }
+                            .sortedWith(compareBy({ it.missing }, { it.label }))
+                        if (cont.isActive) cont.resume(choices)
+                    }
+
+                    override fun onError(error: Int) {
+                        r.destroy()
+                        if (cont.isActive) cont.resume(emptyList())
+                    }
+                },
+            )
+        }
+
+    /**
+     * Starts the on-device download of [tag]'s recognition model. [onProgress] gets 0..100 as it goes,
+     * [onDone] gets whether it succeeded.
+     */
+    fun downloadLanguage(
+        context: Context,
+        chosen: ComponentName?,
+        tag: String,
+        onProgress: (Int) -> Unit,
+        onDone: (Boolean) -> Unit,
+    ) {
+        val r = recognizer(context, chosen)
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, tag)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        r.triggerModelDownload(intent, context.mainExecutor, object : ModelDownloadListener {
+            override fun onProgress(completedPercent: Int) = onProgress(completedPercent)
+            override fun onScheduled() {}
+            override fun onSuccess() { r.destroy(); onDone(true) }
+            override fun onError(error: Int) { r.destroy(); onDone(false) }
+        })
+    }
+
+    /** The recognizer [Dictation] would use: [chosen], else on-device, else the system default. */
+    private fun recognizer(context: Context, chosen: ComponentName?): SpeechRecognizer =
+        if (chosen != null) SpeechRecognizer.createSpeechRecognizer(context, chosen)
+        else if (SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+        else SpeechRecognizer.createSpeechRecognizer(context)
 
     fun voiceLabel(v: Voice): String =
         v.locale.getDisplayName(Locale.getDefault()) + " · " + v.name

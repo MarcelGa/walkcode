@@ -1,5 +1,7 @@
 package dev.walkcode.app.ui
 
+import android.content.ComponentName
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -109,6 +113,8 @@ private fun ChoiceDialog(
     selected: String?,
     onPick: (String?) -> Unit,
     onTest: ((String) -> Unit)? = null,
+    onDownload: ((String) -> Unit)? = null,
+    downloading: Map<String, Int> = emptyMap(),
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -131,6 +137,14 @@ private fun ChoiceDialog(
                         trailing = {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                 if (onTest != null && id != null) Pill("Test", onClick = { onTest(id) })
+                                if (onDownload != null && id != null && o.missing) {
+                                    val progress = downloading[id]
+                                    when {
+                                        progress == null -> Pill("Download", onClick = { onDownload(id) })
+                                        progress > 0 -> Text("$progress%", color = WC.Muted)
+                                        else -> Text("…", color = WC.Muted)
+                                    }
+                                }
                                 if (id == selected) Text("●", color = WC.Accent)
                             }
                         },
@@ -160,9 +174,25 @@ private fun VoiceSettings(settings: AppSettings) {
     val speaker = remember { Speaker(context, settings) }
     DisposableEffect(Unit) { onDispose { speaker.shutdown() } }
 
+    // Reloaded when the recognizer changes (each has its own installed languages) and after a download finishes.
+    var refresh by remember { mutableIntStateOf(0) }
+    val languages by produceState<List<VoiceCatalog.Choice>?>(null, recognizer, refresh) {
+        value = VoiceCatalog.dictationLanguages(context, recognizer?.let(ComponentName::unflattenFromString))
+    }
+    // Tag to percent done (0 until the first progress report) for each language downloading now.
+    val downloading = remember { mutableStateMapOf<String, Int>() }
+    val download: (String) -> Unit = { tag ->
+        downloading[tag] = 0
+        val chosen = recognizer?.let(ComponentName::unflattenFromString)
+        VoiceCatalog.downloadLanguage(context, chosen, tag, onProgress = { downloading[tag] = it }) { ok ->
+            downloading.remove(tag)
+            if (!ok) Toast.makeText(context, "Download failed", Toast.LENGTH_SHORT).show()
+            refresh++
+        }
+    }
+
     val engines = info?.engines.orEmpty()
     val voices = info?.voices.orEmpty().sortedBy { VoiceCatalog.voiceLabel(it) }
-    val languages = VoiceCatalog.languages(info?.voices.orEmpty())
 
     SectionLabel("Voice")
     ListRow("Speech engine", engines.firstOrNull { it.id == engine }?.label ?: "Phone default", onClick = { dialog = "engine" })
@@ -183,7 +213,7 @@ private fun VoiceSettings(settings: AppSettings) {
     )
     ListRow(
         "Dictation language",
-        languages.firstOrNull { it.id == lang }?.label ?: lang ?: "Phone language",
+        languages.orEmpty().firstOrNull { it.id == lang }?.label ?: lang ?: "Phone language",
         onClick = { dialog = "lang" },
     )
 
@@ -194,6 +224,9 @@ private fun VoiceSettings(settings: AppSettings) {
             onTest = { name -> voices.firstOrNull { it.name == name }?.let { speaker.preview(VoiceCatalog.sampleFor(it), name) } },
         ) { speaker.stop(); dialog = null }
         "recognizer" -> ChoiceDialog("Dictation recognizer", recognizers, recognizer, settings::setRecognizer) { dialog = null }
-        "lang" -> ChoiceDialog("Dictation language", languages, lang, settings::setRecognitionLang) { dialog = null }
+        "lang" -> ChoiceDialog(
+            "Dictation language", languages.orEmpty(), lang, settings::setRecognitionLang,
+            onDownload = download, downloading = downloading,
+        ) { dialog = null }
     }
 }
