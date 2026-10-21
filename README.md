@@ -1,5 +1,7 @@
 # Walkcode
 
+**[Clickable UI mockup](https://marcelga.github.io/walkcode/)** · **[Latest release (APK)](https://github.com/MarcelGa/walkcode/releases/latest)**
+
 **Hands-free coding agents, from your pocket.** Walkcode is an Android app that lets you
 run Claude Code, opencode, Copilot CLI or any other terminal agent on your own machines,
 then *listen* to its answers and *dictate* your next instruction while you walk the dog,
