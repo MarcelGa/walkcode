@@ -16,7 +16,8 @@
   .stage{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
   .phone{width:300px;margin:0;background:var(--bg);border:1px solid var(--line);
          border-radius:28px;padding:10px;box-shadow:0 12px 40px #0008}
-  .cap{color:var(--mut);font-size:12px;margin:0 0 8px 4px}
+  .cap{color:var(--mut);font-size:12px;margin:0 0 8px 4px;cursor:help;
+       border-bottom:1px dotted #3a4756;display:inline-block}
   .screen{background:var(--panel2);border-radius:20px;overflow:hidden;height:640px;
           display:flex;flex-direction:column}
   .status{display:flex;justify-content:space-between;padding:6px 14px;font-size:11px;
@@ -26,6 +27,7 @@
        font-weight:600}
   .bar .act{color:var(--accent);font-weight:600}
   .bar .mut{color:var(--mut);font-weight:400}
+  .bar [data-tip]{padding:0 4px}
   .list{flex:1;overflow:auto;padding:8px}
   .row{display:flex;align-items:center;gap:10px;padding:12px;border-radius:12px}
   .row+.row{margin-top:4px}
@@ -98,90 +100,96 @@
   .notif .app{font-weight:600;margin:6px 0 2px}
   .notif .msg{color:var(--fg)}
   .pad{padding:10px}
+  [data-tip]{cursor:help}
+  /* One floating bubble for all tooltips, so phone frames (overflow:hidden) never clip it. */
+  .tip-bubble{position:fixed;z-index:50;display:none;max-width:260px;background:#1f2a37;color:var(--fg);
+              border:1px solid #2f3d4f;border-radius:10px;padding:8px 10px;font-size:12px;line-height:1.35;
+              box-shadow:0 8px 24px #000a;pointer-events:none}
 </style>
 </head>
 <body>
   <h1>Walkcode — clickable mockup v4</h1>
   <div class="sub">Projects → Workspaces → Sessions, Hosts (with the phone-key setup), Settings
     (voice, backup), the terminal including the cached screen while reconnecting, and the
-    alerts. Matches the app as of 2026-10-21. Static; hover states only.</div>
+    alerts. Matches the app as of 2026-10-21. Static; hover states only.
+    <strong>Hover or tap anything with a dotted underline or a question cursor to see what it is.</strong></div>
 
   <div class="stage">
 
     <!-- Projects -->
     <figure class="phone">
-      <figcaption class="cap">Projects</figcaption>
+      <figcaption class="cap" data-tip="Projects tab: a project is a local colour label that groups workspaces. Nothing about it is sent to a host.">Projects</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
-        <div class="bar"><span>Projects</span><span class="act">+</span></div>
+        <div class="bar"><span>Projects</span><span class="act" data-tip="Add a new project">+</span></div>
         <div class="list">
-          <div class="pcard">
-            <div class="hd"><b>Personal</b><span class="badge">1</span></div>
+          <div class="pcard" data-tip="A project. Tap to open its workspaces.">
+            <div class="hd"><b>Personal</b><span class="badge" data-tip="Number of watched sessions with unread output or alerts in this project">1</span></div>
             <div class="meta">1 workspace · hermes · home-server</div>
           </div>
-          <div class="pcard">
-            <div class="hd"><b>Work</b><span class="badge">2</span></div>
+          <div class="pcard" data-tip="A project. Tap to open its workspaces.">
+            <div class="hd"><b>Work</b><span class="badge" data-tip="Number of watched sessions with unread output or alerts in this project">2</span></div>
             <div class="meta">3 workspaces · claude, opencode · 2 hosts</div>
           </div>
         </div>
-        <div class="nav"><div class="sel">Projects &nbsp;<span class="badge">3</span></div><div>Hosts</div><div>Settings</div></div>
+        <div class="nav"><div class="sel" data-tip="Projects tab (current screen)">Projects &nbsp;<span class="badge">3</span></div><div data-tip="Hosts tab: the machines you connect to over SSH, and this phone's device key">Hosts</div><div data-tip="Settings tab: alerts, walk mode, voice, config backup and battery">Settings</div></div>
       </div>
     </figure>
 
     <!-- Project detail -->
     <figure class="phone">
-      <figcaption class="cap">Project detail</figcaption>
+      <figcaption class="cap" data-tip="Project detail: the workspaces inside one project. A workspace is one place an agent runs (a host, a directory and an agent command).">Project detail</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
-        <div class="bar"><span class="mut">← Work</span><span class="act">+ &nbsp; ✎ &nbsp; ✕</span></div>
+        <div class="bar"><span class="mut" data-tip="Back to all projects">← Work</span><span class="act"><span data-tip="New workspace in this project">+</span> &nbsp; <span data-tip="Rename this project or change its colour">✎</span> &nbsp; <span data-tip="Delete this project (its workspaces are kept, without a project)">✕</span></span></div>
         <div class="list">
-          <div class="row"><i class="dot on"></i>
+          <div class="row" data-tip="Workspace on home-server in ~/src/tollbff. Green dot: it has running sessions. The badge counts sessions with unread output."><i class="dot on"></i>
             <div class="t"><b>TollBff</b><span>home-server · claude · 2 sessions</span>
               <span class="path">~/src/tollbff</span></div>
             <span class="badge">2</span></div>
-          <div class="row"><i class="dot off"></i>
+          <div class="row" data-tip="Workspace with no running sessions. Tap to start one."><i class="dot off"></i>
             <div class="t"><b>DMBff</b><span>home-server · claude · no sessions</span>
               <span class="path">~/src/dmbff</span></div></div>
-          <div class="row"><i class="dot on"></i>
+          <div class="row" data-tip="Workspace with a running session. The blue-green dot means unread output in one of its sessions."><i class="dot on"></i>
             <div class="t"><b>IaC &amp; GW</b><span>build-box · opencode · 1 session</span>
               <span class="path">~/infra/gw</span></div>
-            <span class="unread"></span></div>
+            <span class="unread" data-tip="Unread output: something new appeared since you last looked"></span></div>
         </div>
       </div>
     </figure>
 
     <!-- Workspace sessions -->
     <figure class="phone">
-      <figcaption class="cap">Workspace: sessions</figcaption>
+      <figcaption class="cap" data-tip="Workspace sessions: several agent sessions can run in the same workspace. Each one is a tmux (or psmux) session on the host.">Workspace: sessions</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
-        <div class="bar"><span class="mut">← Work / TollBff</span><span class="act">↻ &nbsp; ✎</span></div>
-        <div class="hdr"><div class="c">home-server · <span class="p">~/src/tollbff</span> · claude</div></div>
+        <div class="bar"><span class="mut" data-tip="Back to the project">← Work / TollBff</span><span class="act"><span data-tip="Reload the session list from the host">↻</span> &nbsp; <span data-tip="Edit this workspace (name, host, directory, agent)">✎</span></span></div>
+        <div class="hdr"><div class="c" data-tip="Where this workspace runs: the host, the directory on it, and the agent">home-server · <span class="p">~/src/tollbff</span> · claude</div></div>
         <div class="list">
-          <div class="row"><i class="dot on"></i>
+          <div class="row" data-tip="Session with a name taken from the agent's window title. Green dot: running. Unread dot: new output since you last opened it. Bell: this session alerts you when it goes quiet."><i class="dot on"></i>
             <div class="t"><b>Refactor auth</b><span>active · quiet 3s · 2 new</span></div>
             <span class="unread"></span>
-            <span class="pill hot">🔔</span></div>
-          <div class="row"><i class="dot idle"></i>
+            <span class="pill hot" data-tip="Watched: you get an alert when this session goes quiet with unread output">🔔</span></div>
+          <div class="row" data-tip="Amber dot: quiet for a while, so the agent may be waiting for your input. Bell: watched."><i class="dot idle"></i>
             <div class="t"><b>Fix flaky test</b><span>quiet 42s · may be waiting</span></div>
-            <span class="pill hot">🔔</span></div>
-          <div class="row"><i class="dot off"></i>
+            <span class="pill hot" data-tip="Watched: you get an alert when this session goes quiet with unread output">🔔</span></div>
+          <div class="row" data-tip="Grey dot: the session has stopped on the host. ▶ starts it again."><i class="dot off"></i>
             <div class="t"><b>#3</b><span>stopped</span></div>
-            <span class="pill">▶</span></div>
+            <span class="pill" data-tip="Start or resume this session">▶</span></div>
         </div>
-        <div class="btn ghost">+ New session</div>
+        <div class="btn ghost" data-tip="Start another agent session in this workspace">+ New session</div>
       </div>
     </figure>
 
     <!-- Terminal, live -->
     <figure class="phone">
-      <figcaption class="cap">Terminal (live)</figcaption>
+      <figcaption class="cap" data-tip="Terminal: the live agent session, shown on the phone over SSH. You type into it like a normal terminal.">Terminal (live)</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
-        <div class="bar"><span class="mut">← TollBff / Refactor auth</span><span class="act">⋮</span></div>
+        <div class="bar"><span class="mut" data-tip="Back to the workspace's sessions (the session keeps running)">← TollBff / Refactor auth</span><span class="act" data-tip="More actions for this session">⋮</span></div>
         <div class="hdr"><div class="c">home-server · <span class="p">~/src/tollbff</span> · claude</div></div>
         <div class="wrap">
-          <div class="term">
+          <div class="term" data-tip="The agent's screen. Text here is what the session shows on the host.">
             <div><span class="p">$</span> claude</div>
             <div>&nbsp;</div>
             <div>&gt; refactor the auth module</div>
@@ -192,35 +200,35 @@
           </div>
         </div>
         <div class="walk">
-          <div class="key on">Walk: on</div><div class="key">Dictate</div><div class="key">Hush</div>
+          <div class="key on" data-tip="Walk mode is on: new agent output is read aloud once it goes quiet. Tap to turn it off.">Walk: on</div><div class="key" data-tip="Speak your reply. It is transcribed and typed into the session. Tap again to finish.">Dictate</div><div class="key" data-tip="Stop reading the current answer aloud right now">Hush</div>
         </div>
         <div class="keys">
-          <div class="key">^C</div><div class="key">Esc</div><div class="key">Tab</div>
-          <div class="key">←</div><div class="key">↑</div><div class="key">↓</div>
-          <div class="key">→</div><div class="key">⏎</div>
+          <div class="key" data-tip="Ctrl+C: interrupt the agent">^C</div><div class="key" data-tip="Escape">Esc</div><div class="key" data-tip="Tab key (completion)">Tab</div>
+          <div class="key" data-tip="Left arrow">←</div><div class="key" data-tip="Up arrow (previous input)">↑</div><div class="key" data-tip="Down arrow">↓</div>
+          <div class="key" data-tip="Right arrow">→</div><div class="key" data-tip="Enter: send the line to the agent">⏎</div>
         </div>
       </div>
     </figure>
 
     <!-- Terminal, reconnecting with cached screen -->
     <figure class="phone">
-      <figcaption class="cap">Terminal (reconnecting, cached screen)</figcaption>
+      <figcaption class="cap" data-tip="Reconnecting: while the app reconnects to the host, the last saved screen of this session is shown read-only, with a banner, instead of a blank screen.">Terminal (reconnecting, cached screen)</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
         <div class="bar"><span class="mut">← TollBff / Refactor auth</span><span class="act">⋮</span></div>
         <div class="hdr"><div class="c">home-server · <span class="p">~/src/tollbff</span> · claude</div></div>
         <div class="wrap">
-          <div class="term cached">
+          <div class="term cached" data-tip="Greyed out: the last saved screen, not live. Input is not sent until the connection is back.">
             <div><span class="p">$</span> claude</div>
             <div>&nbsp;</div>
             <div>&gt; refactor the auth module</div>
             <div>● Reading src/auth.ts …</div>
             <div>● Waiting for approval?</div>
           </div>
-          <div class="banner">Connecting to home-server…<span>Last screen from this session, read-only until attached</span></div>
+          <div class="banner" data-tip="The app is trying to reach the host again. It retries on its own.">Connecting to home-server…<span>Last screen from this session, read-only until attached</span></div>
         </div>
         <div class="walk">
-          <div class="key">Walk: off</div><div class="key">Dictate</div><div class="key">Hush</div>
+          <div class="key" data-tip="Walk mode is off">Walk: off</div><div class="key" data-tip="Dictation is available once the session is attached">Dictate</div><div class="key" data-tip="Stop reading aloud right now">Hush</div>
         </div>
         <div class="keys">
           <div class="key">^C</div><div class="key">Esc</div><div class="key">Tab</div>
@@ -232,143 +240,143 @@
 
     <!-- Hosts -->
     <figure class="phone">
-      <figcaption class="cap">Hosts</figcaption>
+      <figcaption class="cap" data-tip="Hosts tab: the machines the app connects to over SSH. Each host runs tmux (Linux, macOS) or psmux (Windows).">Hosts</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
-        <div class="bar"><span>Hosts</span><span class="act">+</span></div>
+        <div class="bar"><span>Hosts</span><span class="act" data-tip="Add a new host">+</span></div>
         <div class="list">
-          <div class="row"><i class="dot on"></i><div class="t">
+          <div class="row" data-tip="Host status. Green: watching, the app is connected and monitoring its sessions. Tap to edit."><i class="dot on"></i><div class="t">
             <b>home-server</b><span>watching · 100.84.2.11 · 3 workspaces</span></div></div>
-          <div class="row"><i class="dot on"></i><div class="t">
+          <div class="row" data-tip="Green: watching. The address is the LAN name, tried first; the tailnet address is the fallback."><i class="dot on"></i><div class="t">
             <b>dev-laptop</b><span>watching · dev.local · 1 workspace</span></div></div>
-          <div class="row"><i class="dot off"></i><div class="t">
+          <div class="row" data-tip="Grey: not connected yet. It connects the first time you open one of its workspaces."><i class="dot off"></i><div class="t">
             <b>build-box</b><span>not connected yet · 1 workspace</span></div></div>
-          <div class="sect">Device key</div>
+          <div class="sect" data-tip="The phone's SSH identity. One key for all hosts, generated in the Android Keystore; the private part never leaves the phone.">Device key</div>
           <div class="row"><div class="t"><b>Ed25519 · generated on device</b>
             <span class="mono">ssh-ed25519 AAAAC3…Lr walkcode@android</span></div>
-            <span class="pill">Copy pubkey</span></div>
+            <span class="pill" data-tip="Copy the public key, for hosts you authorize by hand">Copy pubkey</span></div>
         </div>
-        <div class="nav"><div>Projects</div><div class="sel">Hosts</div><div>Settings</div></div>
+        <div class="nav"><div data-tip="Projects tab">Projects</div><div class="sel" data-tip="Hosts tab (current screen)">Hosts</div><div data-tip="Settings tab">Settings</div></div>
       </div>
     </figure>
 
     <!-- Host editor -->
     <figure class="phone">
-      <figcaption class="cap">Host editor (phone key)</figcaption>
+      <figcaption class="cap" data-tip="Host editor: the connection details for one host, plus the setup steps that let this phone log in to it.">Host editor (phone key)</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
-        <div class="bar"><span class="mut">← Edit host</span><span></span></div>
+        <div class="bar"><span class="mut" data-tip="Back to the hosts list without saving">← Edit host</span><span></span></div>
         <div class="list">
-          <div class="field"><span>Name</span><b>home-server</b></div>
-          <div class="field"><span>User</span><b>dev</b></div>
-          <div class="field"><span>Port</span><b>22</b></div>
-          <div class="field"><span>LAN address</span><span class="v">dev.local</span></div>
-          <div class="field"><span>Tailnet address</span><span class="v">100.84.2.11</span></div>
-          <div class="field"><span>Multiplexer</span><b>tmux (Linux / macOS) ▾</b></div>
-          <div class="sect">Phone key</div>
-          <div class="row"><div class="t"><b>Authorize command</b>
-            <span>Paste into a shell on the host</span></div><span class="pill">Copy</span></div>
-          <div class="btn ghost" style="margin:8px 6px">Test connection</div>
-          <div class="res">Connected via dev.local. This phone is authorized.</div>
-          <div class="sect">Host key</div>
+          <div class="field" data-tip="A label for this host, shown in the app"><span>Name</span><b>home-server</b></div>
+          <div class="field" data-tip="The login name on the host"><span>User</span><b>dev</b></div>
+          <div class="field" data-tip="SSH port on the host (22 unless changed)"><span>Port</span><b>22</b></div>
+          <div class="field" data-tip="Address on your home network. Tried first; only resolves at home."><span>LAN address</span><span class="v">dev.local</span></div>
+          <div class="field" data-tip="Tailscale address. Used when the LAN address does not answer, so it works away from home."><span>Tailnet address</span><span class="v">100.84.2.11</span></div>
+          <div class="field" data-tip="Which terminal multiplexer the host runs: tmux on Linux or macOS, psmux on Windows"><span>Multiplexer</span><b>tmux (Linux / macOS) ▾</b></div>
+          <div class="sect" data-tip="Setup that lets this phone log in to the host. Run the command once on the host, then test.">Phone key</div>
+          <div class="row" data-tip="Copies a one-line command. Paste it into a shell on the host (PowerShell as administrator for Windows hosts). It adds the phone's key to the host's authorized keys and is safe to run twice."><div class="t"><b>Authorize command</b>
+            <span>Paste into a shell on the host</span></div><span class="pill" data-tip="Copy the authorize command to the clipboard">Copy</span></div>
+          <div class="btn ghost" style="margin:8px 6px" data-tip="Connects once with the phone's key and reports whether the host accepts it. Pins the host key if none is pinned yet.">Test connection</div>
+          <div class="res" data-tip="Result of the last test">Connected via dev.local. This phone is authorized.</div>
+          <div class="sect" data-tip="Fingerprint of the host's key, pinned the first time the app connected. If it changes, the app refuses to connect.">Host key</div>
           <div class="res mono" style="color:var(--blue)">SHA256:tzXmYcHb8arKxxAEojuYCHUg6q4ZlIZIT9PiZGjLIkY</div>
-          <div class="btn" style="margin:8px 6px">Save</div>
-          <div class="btn ghost" style="margin:4px 6px 8px">Delete host</div>
+          <div class="btn" style="margin:8px 6px" data-tip="Save the changes to this host">Save</div>
+          <div class="btn ghost" style="margin:4px 6px 8px" data-tip="Delete this host and its workspaces">Delete host</div>
         </div>
       </div>
     </figure>
 
     <!-- Settings -->
     <figure class="phone">
-      <figcaption class="cap">Settings</figcaption>
+      <figcaption class="cap" data-tip="Settings: alerts, walk mode (reading answers aloud and dictation), voice, config backup and battery.">Settings</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
         <div class="bar"><span>Settings</span><span></span></div>
         <div class="list">
           <div class="sect">Alerts</div>
-          <div class="row"><div class="t"><b>Quiet alerts</b>
+          <div class="row" data-tip="When on, you get a notification when a watched session has unread output and then goes quiet"><div class="t"><b>Quiet alerts</b>
             <span>Notify when a watched session has unread output and goes silent</span></div><i class="sw on"></i></div>
-          <div class="pad" style="padding:4px 14px 8px;display:flex;gap:6px;flex-wrap:wrap">
+          <div class="pad" style="padding:4px 14px 8px;display:flex;gap:6px;flex-wrap:wrap" data-tip="How long a session must be silent before it counts as quiet. Default 15 s. Highlighted: current value.">
             <span class="pill">5s</span><span class="pill">10s</span><span class="pill hot">15s</span><span class="pill">30s</span><span class="pill">60s</span><span class="pill">120s</span>
           </div>
           <div class="sect">Walk mode</div>
-          <div class="row"><div class="t"><b>Read responses aloud</b><span>Speak new agent output once it goes quiet</span></div><i class="sw on"></i></div>
-          <div class="row"><div class="t"><b>Send dictation automatically</b><span>Press Enter after the dictated text</span></div><i class="sw on"></i></div>
+          <div class="row" data-tip="Walk mode: the app reads new agent output aloud once it goes quiet"><div class="t"><b>Read responses aloud</b><span>Speak new agent output once it goes quiet</span></div><i class="sw on"></i></div>
+          <div class="row" data-tip="After dictation, press Enter for you so the agent gets the text. Off leaves it in the prompt to check first."><div class="t"><b>Send dictation automatically</b><span>Press Enter after the dictated text</span></div><i class="sw on"></i></div>
           <div class="sect">Voice</div>
-          <div class="row"><div class="t"><b>Speech engine</b><span>Engine default</span></div></div>
-          <div class="row"><div class="t"><b>Voice</b><span>Phone default</span></div></div>
-          <div class="pad" style="padding:4px 14px 8px;display:flex;gap:6px;flex-wrap:wrap">
+          <div class="row" data-tip="The text-to-speech engine that reads answers aloud. Engine default is the phone's choice."><div class="t"><b>Speech engine</b><span>Engine default</span></div></div>
+          <div class="row" data-tip="The voice used by the chosen engine"><div class="t"><b>Voice</b><span>Phone default</span></div></div>
+          <div class="pad" style="padding:4px 14px 8px;display:flex;gap:6px;flex-wrap:wrap" data-tip="Speaking speed. Highlighted: current value.">
             <span class="pill">0.8x</span><span class="pill hot">1.2x</span><span class="pill">1.5x</span><span class="pill">2.0x</span>
           </div>
-          <div class="row"><div class="t"><b>Dictation recognizer</b><span>Phone default (on-device if available)</span></div></div>
-          <div class="row"><div class="t"><b>Dictation language</b><span>English (United States) · installed</span></div></div>
-          <div class="row"><div class="t"><b>Deutsch</b><span>not installed</span></div><span class="pill">Download</span></div>
+          <div class="row" data-tip="Which speech recognizer turns your dictation into text. Phone default uses on-device recognition when available."><div class="t"><b>Dictation recognizer</b><span>Phone default (on-device if available)</span></div></div>
+          <div class="row" data-tip="The language your dictation is recognized in. Languages marked as not installed can be downloaded for offline use."><div class="t"><b>Dictation language</b><span>English (United States) · installed</span></div></div>
+          <div class="row" data-tip="A language that is not installed yet. Download fetches its recognition model to the phone."><div class="t"><b>Deutsch</b><span>not installed</span></div><span class="pill" data-tip="Download the recognition model for this language">Download</span></div>
           <div class="sect">Backup</div>
-          <div class="row"><div class="t"><b>Export config</b><span>Hosts, projects, workspaces, agent presets and settings. No keys.</span></div><span class="pill">Export</span></div>
-          <div class="row"><div class="t"><b>Import config</b><span>Adds what is missing; existing names are kept.</span></div><span class="pill">Import</span></div>
+          <div class="row" data-tip="Saves hosts, projects, workspaces, agent presets and settings to a JSON file. Keys are never included, so re-authorize the phone on each host after importing."><div class="t"><b>Export config</b><span>Hosts, projects, workspaces, agent presets and settings. No keys.</span></div><span class="pill" data-tip="Choose where to save walkcode-config.json">Export</span></div>
+          <div class="row" data-tip="Loads a config file made by Export. Anything already present by name is kept; settings are replaced."><div class="t"><b>Import config</b><span>Adds what is missing; existing names are kept.</span></div><span class="pill" data-tip="Pick a config file to import">Import</span></div>
           <div class="sect">Background</div>
-          <div class="row"><div class="t"><b>Battery optimisation</b><span class="ok">Unrestricted — monitoring can run while the screen is off</span></div></div>
+          <div class="row" data-tip="Android may pause background monitoring to save battery. Unrestricted lets monitoring keep running while the screen is off."><div class="t"><b>Battery optimisation</b><span class="ok">Unrestricted — monitoring can run while the screen is off</span></div></div>
         </div>
-        <div class="nav"><div>Projects</div><div>Hosts</div><div class="sel">Settings</div></div>
+        <div class="nav"><div data-tip="Projects tab">Projects</div><div data-tip="Hosts tab">Hosts</div><div class="sel" data-tip="Settings tab (current screen)">Settings</div></div>
       </div>
     </figure>
 
     <!-- Import summary -->
     <figure class="phone">
-      <figcaption class="cap">Import summary</figcaption>
+      <figcaption class="cap" data-tip="Import summary: what an import added. Hosts need the phone's key added on each one, so the app lists them.">Import summary</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
         <div class="pad">
-          <div class="notif">
+          <div class="notif" data-tip="How many hosts, workspaces, projects and presets were added, and what was skipped because the name already existed">
             <div class="top">Config imported</div>
             <div class="app">Hosts: 2 added · 1 already present</div>
             <div class="msg">Workspaces: 3 added, 1 skipped<br>Projects: 1 added · Agent presets: 0 added</div>
           </div>
-          <div class="notif">
+          <div class="notif" data-tip="These hosts are new on this phone, so they still need the phone's key. Open each one and copy its authorize command.">
             <div class="top">Authorize this phone on</div>
             <div class="app">home-server, build-box</div>
             <div class="msg">Open each host under Hosts and copy its command, or tap Test connection to check.</div>
           </div>
         </div>
-        <div class="btn" style="margin-top:auto">OK</div>
+        <div class="btn" style="margin-top:auto" data-tip="Close this summary">OK</div>
       </div>
     </figure>
 
     <!-- Workspace editor -->
     <figure class="phone">
-      <figcaption class="cap">Workspace editor</figcaption>
+      <figcaption class="cap" data-tip="Workspace editor: create or change a workspace (where an agent runs).">Workspace editor</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
-        <div class="bar"><span class="mut">← New workspace</span><span></span></div>
+        <div class="bar"><span class="mut" data-tip="Back without saving">← New workspace</span><span></span></div>
         <div class="pad">
-          <div class="field"><span>Name</span><b>TollBff</b></div>
-          <div class="field"><span>Project</span><b>Work</b></div>
-          <div class="field"><span>Host</span><b>home-server ▾</b></div>
-          <div class="field"><span>Directory</span><span class="v">~/src/tollbff</span></div>
-          <div class="field"><span>Agent</span><b>claude ▾</b></div>
-          <div class="field"><span>Args</span><b>—</b></div>
+          <div class="field" data-tip="A name for this workspace. Also used in the session names."><span>Name</span><b>TollBff</b></div>
+          <div class="field" data-tip="The project this workspace belongs to (a local label)"><span>Project</span><b>Work</b></div>
+          <div class="field" data-tip="The host the agent runs on"><span>Host</span><b>home-server ▾</b></div>
+          <div class="field" data-tip="The folder on the host where the agent starts"><span>Directory</span><span class="v">~/src/tollbff</span></div>
+          <div class="field" data-tip="Which agent command to start: claude, opencode, Copilot CLI, Hermes, or one you added"><span>Agent</span><b>claude ▾</b></div>
+          <div class="field" data-tip="Extra command-line arguments for the agent, optional"><span>Args</span><b>—</b></div>
         </div>
-        <div class="btn">Save</div>
+        <div class="btn" data-tip="Save this workspace">Save</div>
       </div>
     </figure>
 
     <!-- Notifications -->
     <figure class="phone">
-      <figcaption class="cap">Notifications</figcaption>
+      <figcaption class="cap" data-tip="Notifications: the alerts the phone shows. Agent alerts fire when a watched session goes quiet; connection alerts report the host link.">Notifications</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
         <div class="pad">
-          <div class="notif">
+          <div class="notif" data-tip="Agent alert: a watched session went quiet and may be waiting for you. Tap to open it.">
             <div class="top">Agent alerts</div>
             <div class="app">Work · TollBff · Fix flaky test</div>
             <div class="msg">No output for 15s — may be waiting for input</div>
           </div>
-          <div class="notif">
+          <div class="notif" data-tip="Connection alert: the link to the host dropped. The app retries on its own.">
             <div class="top">Connection status</div>
             <div class="app">home-server</div>
             <div class="msg">Connection lost — reconnecting…</div>
           </div>
-          <div class="notif">
+          <div class="notif" data-tip="Connection alert: the phone paused monitoring (for example for battery saving). Tap to resume.">
             <div class="top">Connection status</div>
             <div class="app">home-server</div>
             <div class="msg">Monitoring paused — tap to resume</div>
@@ -378,5 +386,36 @@
     </figure>
 
   </div>
+
+  <div class="tip-bubble" id="tip" role="tooltip"></div>
+  <script>
+    // Tooltips: hover shows, tap shows (phones have no hover), tapping elsewhere hides.
+    (function () {
+      var tip = document.getElementById('tip');
+      var current = null;
+      function show(el) {
+        tip.textContent = el.getAttribute('data-tip');
+        tip.style.display = 'block';
+        var r = el.getBoundingClientRect();
+        var w = tip.offsetWidth, h = tip.offsetHeight;
+        var left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+        var top = r.bottom + 6;
+        if (top + h > window.innerHeight) top = Math.max(8, r.top - h - 6);
+        tip.style.left = left + 'px';
+        tip.style.top = top + 'px';
+        current = el;
+      }
+      function hide() { tip.style.display = 'none'; current = null; }
+      document.addEventListener('mouseover', function (e) {
+        var el = e.target.closest('[data-tip]');
+        if (el) { if (el !== current) show(el); } else { hide(); }
+      });
+      document.addEventListener('click', function (e) {
+        var el = e.target.closest('[data-tip]');
+        if (el) show(el); else hide();
+      });
+      window.addEventListener('scroll', hide, true);
+    })();
+  </script>
 </body>
 </html>
