@@ -3,6 +3,9 @@ name: Release
 # Push a tag like v0.2.0 to publish a signed APK as a GitHub Release. Obtainium on the
 # phone watches the latest release. Manual runs build and upload the APK as a workflow
 # artifact only, without publishing a release.
+#
+# Two jobs: `check` must pass before `build` creates any artifact. It runs the JVM tests
+# and checks that the mockup was updated for any UI change since the previous release.
 on:
   push:
     tags: ['v*']
@@ -12,7 +15,41 @@ permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history and tags: the mockup check compares against the previous release.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Find the previous release
+        id: previous
+        run: |
+          # The newest tag reachable from HEAD that is not the tag being built.
+          # Empty on the first release, which makes the mockup check only look for mockup/.
+          prev=$(git tag --merged HEAD --sort=-v:refname | grep -vx "$GITHUB_REF_NAME" | head -1 || true)
+          echo "base=$prev" >> "$GITHUB_OUTPUT"
+          echo "Previous release: ${prev:-none}"
+
+      - name: Mockup matches the UI
+        run: bash tools/check-mockup.sh "${{ steps.previous.outputs.base }}"
+
+      - name: Unit tests
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest --no-daemon --console=plain
+
   build:
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +78,7 @@ jobs:
             *) echo "VERSION_NAME=0.0.0-dev.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV" ;;
           esac
 
-      - name: Unit tests and signed release APK
+      - name: Signed release APK
         env:
           WALKCODE_KEYSTORE_FILE: ${{ runner.temp }}/walkcode-release.jks
           WALKCODE_KEYSTORE_PASSWORD: ${{ secrets.WALKCODE_KEYSTORE_PASSWORD }}
@@ -51,7 +88,7 @@ jobs:
           WALKCODE_VERSION_NAME: ${{ env.VERSION_NAME }}
         run: |
           chmod +x gradlew
-          ./gradlew :app:testDebugUnitTest :app:assembleRelease --no-daemon --console=plain
+          ./gradlew :app:assembleRelease --no-daemon --console=plain
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
