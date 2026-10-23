@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import dev.walkcode.app.ssh.HostKeyMismatchException
+import dev.walkcode.app.terminal.ScreenCache
 import kotlinx.coroutines.launch
 
 /** What the app knows about which of a workspace's sessions are alive on its host. */
@@ -205,6 +206,7 @@ fun ColumnScope.WorkspaceScreen(
                     pendingDelete = null
                     scope.launch {
                         if (alive && host != null) runCatching { service.killSession(host, s) }
+                        ScreenCache.of(context).delete(s.id)
                         repo.deleteSession(s)
                         refresh++
                     }

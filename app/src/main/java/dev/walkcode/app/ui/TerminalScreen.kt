@@ -4,12 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,8 +57,11 @@ import dev.walkcode.app.session.Attachment
 import kotlinx.coroutines.launch
 import dev.walkcode.app.session.SessionService
 import dev.walkcode.app.terminal.ExtraKey
+import dev.walkcode.app.terminal.ScreenCache
 import dev.walkcode.app.terminal.SshTerminalTransport
 import dev.walkcode.app.terminal.TerminalController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private sealed interface TermState {
     data class Connecting(val detail: String) : TermState
@@ -92,6 +101,12 @@ fun ColumnScope.TerminalScreen(
     var attempt by remember { mutableIntStateOf(0) }
     var attachment by remember { mutableStateOf<Attachment?>(null) }
 
+    // Last screen of this session from an earlier visit, shown while the reconnect runs.
+    val screens = remember(context) { ScreenCache.of(context) }
+    val snapshot by produceState<String?>(null, sessionId) {
+        value = withContext(Dispatchers.IO) { screens.load(sessionId) }?.takeIf { it.isNotBlank() }
+    }
+
     val terminalView = remember { TerminalView(context, null) }
     // The controller is built once, so its listener reads through a bridge that is
     // re-pointed at the current composition's state setters.
@@ -106,7 +121,9 @@ fun ColumnScope.TerminalScreen(
             override fun onFinished(session: TerminalSession) =
                 bridge.onFinished(session.exitReason ?: "session ended (exit ${session.exitStatus})")
             override fun onModifiersChanged(ctrl: Boolean, alt: Boolean) = bridge.onModifiers(ctrl, alt)
-            override fun onScreenChanged() { walk.lastChange = SystemClock.uptimeMillis(); walk.dirty = true }
+            override fun onScreenChanged() {
+                walk.lastChange = SystemClock.uptimeMillis(); walk.dirty = true; walk.screenChanged = true
+            }
         })
     }
 
@@ -175,6 +192,18 @@ fun ColumnScope.TerminalScreen(
             if (text.isNotBlank()) speaker.speak(text)
         }
     }
+    // Writes the screen to disk when it changed, so the cache survives the app being killed.
+    LaunchedEffect(session?.id, attachment) {
+        val id = session?.id ?: return@LaunchedEffect
+        if (attachment == null) return@LaunchedEffect
+        while (isActive) {
+            delay(SNAPSHOT_MS)
+            if (!walk.screenChanged) continue
+            walk.screenChanged = false
+            val text = terminalView.screenText() ?: continue
+            withContext(Dispatchers.IO) { screens.save(id, text) }
+        }
+    }
     walk.capture = {
         val a = attachment; val s = session; val h = host
         if (a != null && s != null && h != null) runCatching { service.capture(a.client, h, s) }.getOrNull() else null
@@ -211,6 +240,9 @@ fun ColumnScope.TerminalScreen(
 
     DisposableEffect(Unit) {
         onDispose {
+            controller.view.screenText()?.let { text ->
+                kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch { screens.save(sessionId, text) }
+            }
             controller.view.currentSession?.finishIfRunning()
             attachment?.let { service.close(it.client) }
         }
@@ -226,9 +258,22 @@ fun ColumnScope.TerminalScreen(
     Box(Modifier.weight(1f).fillMaxWidth().background(androidx.compose.ui.graphics.Color(0xFF0A0E13))) {
         AndroidView(factory = { terminalView }, modifier = Modifier.fillMaxWidth().padding(2.dp))
         when (val st = state) {
-            is TermState.Connecting -> Overlay("Connecting" + if (st.detail.isNotEmpty()) " to ${st.detail}…" else "…", null, null)
-            is TermState.Failed -> Overlay(st.reason, "Retry") { attempt++ }
-            is TermState.Ended -> Overlay(st.reason, "Reconnect") { attempt++ }
+            is TermState.Connecting -> {
+                val connecting = "Connecting" + if (st.detail.isNotEmpty()) " to ${st.detail}…" else "…"
+                val cached = snapshot
+                if (cached == null) {
+                    Overlay(connecting, null, null)
+                } else {
+                    // Not a full overlay: the cached text stays readable under the banner.
+                    CachedScreen(cached)
+                    Text(
+                        connecting, color = WC.Fg, fontSize = 13.sp,
+                        modifier = Modifier.align(Alignment.BottomCenter).background(WC.Panel2).padding(horizontal = 14.dp, vertical = 6.dp),
+                    )
+                }
+            }
+            is TermState.Failed -> Stalled(st.reason, snapshot, "Retry") { attempt++ }
+            is TermState.Ended -> Stalled(st.reason, snapshot, "Reconnect") { attempt++ }
             TermState.Attached -> {}
         }
     }
@@ -279,6 +324,42 @@ fun ColumnScope.TerminalScreen(
     }
 }
 
+/**
+ * A failed or ended connection: the last saved screen stays readable, with the reason and the
+ * retry action in a bar at the bottom. Without a saved screen this is the full overlay.
+ */
+@Composable
+private fun BoxScope.Stalled(reason: String, cached: String?, action: String, onAction: () -> Unit) {
+    if (cached == null) {
+        Overlay(reason, action, onAction)
+        return
+    }
+    CachedScreen(cached)
+    Row(
+        Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(WC.Panel2).padding(start = 14.dp, end = 6.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(reason, color = WC.Warn, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        TextButton(onClick = onAction) { Text(action, color = WC.Accent) }
+    }
+}
+
+/** The last saved screen, bottom-aligned and unwrapped so it lines up like the live terminal. */
+@Composable
+private fun CachedScreen(text: String) {
+    Column(
+        Modifier.fillMaxSize().padding(4.dp)
+            .verticalScroll(rememberScrollState(Int.MAX_VALUE))
+            .horizontalScroll(rememberScrollState()),
+    ) {
+        Text(text, color = WC.Fg, fontFamily = FontFamily.Monospace, fontSize = 12.sp, softWrap = false)
+    }
+}
+
+/** Visible screen plus scrollback as plain text; null until the emulator exists. */
+private fun TerminalView.screenText(): String? =
+    currentSession?.emulator?.screen?.transcriptTextWithFullLinesJoined
+
 @Composable
 private fun Overlay(message: String, action: String?, onAction: (() -> Unit)?) {
     Box(Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Color(0xCC0A0E13)).padding(24.dp), contentAlignment = Alignment.Center) {
@@ -289,6 +370,8 @@ private fun Overlay(message: String, action: String?, onAction: (() -> Unit)?) {
     }
 }
 
+/** How often a changed screen is written to the cache while attached. */
+private const val SNAPSHOT_MS = 2000L
 private const val POLL_MS = 500L
 /** Screen quiet this long after a change counts as "the agent finished talking". */
 private const val SETTLE_MS = 2500L
@@ -300,6 +383,8 @@ private class WalkState {
     @Volatile var lastChange = 0L
     @Volatile var dirty = false
     var active = false
+    /** Set on every emulator update; cleared when the screen is written to the cache. */
+    @Volatile var screenChanged = false
     /** Pane text at the last point whose output was already handled (spoken or ours). */
     var baseline: String? = null
     /** Last dictated text, so its echo in the agent's input line is not read back. */

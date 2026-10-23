@@ -235,3 +235,11 @@ Voice settings (Settings > Voice): TTS engine, voice, speed (with a Test pill), 
 language. Stored in `AppSettings`, null = phone default; listed from the installed engines/services via
 `walk/VoiceCatalog`. Changing the engine clears the chosen voice. Same verification level as above (build
 and JVM tests only).
+
+## Cached terminal screen (2026-10-20)
+
+Each session's last screen (emulator transcript, last 200 lines) is written to `cacheDir/screens/<id>.txt`
+every 2 s while it changes and when the terminal is left. Opening the session shows that text under the
+"Connecting" banner instead of an empty terminal. Killing or removing a session deletes its file.
+**Verified:** `ScreenCacheTest` (JVM) and `assembleDebug`.
+**Not verified on a device:** how the cached text looks next to the live terminal after attach.
