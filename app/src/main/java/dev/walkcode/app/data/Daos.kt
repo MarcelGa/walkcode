@@ -37,6 +37,12 @@ interface ProjectDao {
 
     @Delete
     suspend fun delete(project: Project)
+
+    @Query("SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM projects")
+    suspend fun nextSortOrder(): Int
+
+    @Query("UPDATE projects SET sortOrder = :order WHERE id = :id")
+    suspend fun setSortOrder(id: Long, order: Int)
 }
 
 @Dao
@@ -56,7 +62,7 @@ interface AgentPresetDao {
 
 @Dao
 interface WorkspaceDao {
-    @Query("SELECT * FROM workspaces ORDER BY lastUsedAt DESC, name COLLATE NOCASE")
+    @Query("SELECT * FROM workspaces ORDER BY sortOrder, lastUsedAt DESC, name COLLATE NOCASE")
     fun observeAll(): Flow<List<Workspace>>
 
     @Query("SELECT * FROM workspaces WHERE id = :id")
@@ -70,11 +76,17 @@ interface WorkspaceDao {
 
     @Query("UPDATE workspaces SET lastUsedAt = :at WHERE id = :id")
     suspend fun touch(id: Long, at: Long = System.currentTimeMillis())
+
+    @Query("SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM workspaces")
+    suspend fun nextSortOrder(): Int
+
+    @Query("UPDATE workspaces SET sortOrder = :order WHERE id = :id")
+    suspend fun setSortOrder(id: Long, order: Int)
 }
 
 @Dao
 interface SessionDao {
-    @Query("SELECT * FROM sessions WHERE workspaceId = :workspaceId ORDER BY ordinal, id")
+    @Query("SELECT * FROM sessions WHERE workspaceId = :workspaceId ORDER BY sortOrder, ordinal, id")
     fun observeForWorkspace(workspaceId: Long): Flow<List<Session>>
 
     @Query("SELECT * FROM sessions ORDER BY id")
@@ -104,6 +116,9 @@ interface SessionDao {
 
     @Query("UPDATE sessions SET watched = :watched WHERE id = :id")
     suspend fun setWatched(id: Long, watched: Boolean)
+
+    @Query("UPDATE sessions SET sortOrder = :order WHERE id = :id")
+    suspend fun setSortOrder(id: Long, order: Int)
 
     @Query("UPDATE sessions SET lastViewedAt = :at, lastViewedHash = :hash WHERE id = :id")
     suspend fun markViewed(id: Long, at: Long, hash: String?)

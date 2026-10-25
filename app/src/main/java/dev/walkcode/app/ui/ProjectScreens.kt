@@ -75,7 +75,7 @@ fun ProjectsScreen(repo: WalkcodeRepository, monitor: Monitor, onOpenProject: (L
         if (projects.isEmpty() && workspaces.isEmpty()) {
             EmptyHint("Add a host in the Hosts tab, then create a project with + and a workspace inside it.")
         }
-        for (p in projects) {
+        ReorderableColumn(projects, { it.id }, { ids -> scope.launch { repo.reorderProjects(ids) } }) { p ->
             Card(onClick = { onOpenProject(p.id) }) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.size(10.dp).clip(CircleShape).background(projectColor(p)))
@@ -149,7 +149,7 @@ fun ProjectDetailScreen(
     Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 4.dp)) {
         val list = workspaces.filter { it.projectId == projectId }
         if (list.isEmpty()) EmptyHint("No workspaces. Add one with +.")
-        for (w in list) {
+        ReorderableColumn(list, { it.id }, { ids -> scope.launch { repo.reorderWorkspaces(ids) } }) { w ->
             val host = hosts.firstOrNull { it.id == w.hostId }
             val preset = presets.firstOrNull { it.id == w.agentPresetId }
             val n = sessions.count { it.workspaceId == w.id }

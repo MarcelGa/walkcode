@@ -1,5 +1,6 @@
 package dev.walkcode.app.data
 
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -44,7 +45,7 @@ class WalkcodeRepository(private val db: WalkcodeDatabase) {
     // --- Projects / presets ------------------------------------------------
 
     suspend fun addProject(name: String, color: Int? = null): Long =
-        db.projects().upsert(Project(name = name.trim(), color = color))
+        db.projects().upsert(Project(name = name.trim(), color = color, sortOrder = db.projects().nextSortOrder()))
 
     suspend fun deleteProject(project: Project) = db.projects().delete(project)
 
@@ -70,6 +71,7 @@ class WalkcodeRepository(private val db: WalkcodeDatabase) {
             agentPresetId = agentPresetId,
             args = args,
             slug = Naming.slug(name),
+            sortOrder = db.workspaces().nextSortOrder(),
         ),
     )
 
@@ -84,9 +86,11 @@ class WalkcodeRepository(private val db: WalkcodeDatabase) {
     /** Adds another session for a workspace, picking the next free ordinal. */
     suspend fun createSession(workspaceId: Long, watched: Boolean = false): Session {
         val workspace = requireNotNull(db.workspaces().get(workspaceId)) { "no workspace $workspaceId" }
-        val ordinal = Naming.nextOrdinal(db.sessions().forWorkspace(workspaceId).map { it.ordinal })
+        val siblings = db.sessions().forWorkspace(workspaceId)
+        val ordinal = Naming.nextOrdinal(siblings.map { it.ordinal })
         val name = Naming.tmuxName(workspace.slug, workspace.id, ordinal)
-        val id = db.sessions().upsert(Session(tmuxName = name, workspaceId = workspaceId, ordinal = ordinal, watched = watched))
+        val order = (siblings.maxOfOrNull { it.sortOrder } ?: -1) + 1
+        val id = db.sessions().upsert(Session(tmuxName = name, workspaceId = workspaceId, ordinal = ordinal, watched = watched, sortOrder = order))
         return requireNotNull(db.sessions().get(id))
     }
 
@@ -107,6 +111,19 @@ class WalkcodeRepository(private val db: WalkcodeDatabase) {
         db.sessions().markViewed(sessionId, at, screenHash)
 
     suspend fun deleteSession(session: Session) = db.sessions().delete(session)
+
+    // --- Manual order --------------------------------------------------------
+    // Each takes the ids in their new on-screen order. Workspaces and sessions are only ever shown
+    // within one project / workspace, so positions only need to be consistent within that group.
+
+    suspend fun reorderProjects(ids: List<Long>) =
+        db.withTransaction { ids.forEachIndexed { i, id -> db.projects().setSortOrder(id, i) } }
+
+    suspend fun reorderWorkspaces(ids: List<Long>) =
+        db.withTransaction { ids.forEachIndexed { i, id -> db.workspaces().setSortOrder(id, i) } }
+
+    suspend fun reorderSessions(ids: List<Long>) =
+        db.withTransaction { ids.forEachIndexed { i, id -> db.sessions().setSortOrder(id, i) } }
 
     companion object {
         @Volatile private var shared: WalkcodeRepository? = null

@@ -143,7 +143,8 @@ Use `<placeholders>` in anything you commit.
 - **Windows sessions start through `cmd /c "set WALKCODE_SESSION=1&& pwsh -File shell-init.ps1"`**
   so the user's PowerShell profile (which runs before `-File`) can see the marker and skip
   Nerd Font prompts / ListView prediction (they garble the phone terminal).
-- **Room schema is version 2** (`Session.label`); there is `MIGRATION_1_2`, `exportSchema=false`.
+- **Room schema is version 4** (`Session.label`, `Session.autoTitle`, `sortOrder` on workspaces and sessions);
+  migrations `1_2`..`3_4`, `exportSchema=false`.
   Bump the version and add a migration for any entity change.
 - **`MonitorService` must not read a stale `Monitor.watchedByHost`**: it is `null` until computed
   and reset on `stop()`; an empty map means "nothing watched" and stops the service.

@@ -243,3 +243,14 @@ every 2 s while it changes and when the terminal is left. Opening the session sh
 "Connecting" banner instead of an empty terminal. Killing or removing a session deletes its file.
 **Verified:** `ScreenCacheTest` (JVM) and `assembleDebug`.
 **Not verified on a device:** how the cached text looks next to the live terminal after attach.
+
+## Manual reorder (2026-10-25)
+
+Holding a project, workspace or session row and dragging it reorders the list (`ui/Reorderable.kt`,
+a long-press drag on a plain `Column`; a short tap still opens the row). The order is stored in `sortOrder`
+(projects already had it; workspaces and sessions got it in Room v4, existing rows start at 0 and keep their
+old order until dragged). New items go last. Workspace positions are only compared within one project.
+**Verified on the emulator:** v3 -> v4 migration over an existing database, project reorder persists across a
+restart, tap still opens a project, the drop does not open it, session reorder both ways
+(`adb shell input draganddrop`). **Not verified:** workspace reorder (same component; the emulator had one
+workspace) and the feel on the phone (haptic, auto-scroll is not implemented for long lists).

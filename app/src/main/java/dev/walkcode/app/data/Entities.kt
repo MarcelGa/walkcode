@@ -72,6 +72,8 @@ data class Workspace(
     val args: String? = null,
     /** Stable component of the multiplexer session name: `wc-<slug>-<id>`. */
     val slug: String,
+    /** Manual position within its project (long-press drag); new workspaces go last. */
+    val sortOrder: Int = 0,
     val lastUsedAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
 )
@@ -98,6 +100,8 @@ data class Session(
     /** When this session was last viewed, and the screen hash at that moment (unread detection). */
     val lastViewedAt: Long? = null,
     val lastViewedHash: String? = null,
+    /** Manual position within its workspace (long-press drag); new sessions go last. */
+    val sortOrder: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
 )
 

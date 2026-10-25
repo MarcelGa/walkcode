@@ -119,7 +119,7 @@ fun ColumnScope.WorkspaceScreen(
 
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
         if (sessions.isEmpty()) EmptyHint("No sessions yet. Start one below.")
-        for (s in sessions) {
+        ReorderableColumn(sessions, { it.id }, { ids -> scope.launch { repo.reorderSessions(ids) } }) { s ->
             val running = (state as? HostState.Known)?.running?.contains(s.tmuxName)
             val label = s.displayName()
             val act = activity[s.tmuxName]?.takeIf { s.watched }

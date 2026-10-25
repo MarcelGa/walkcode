@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Host::class, Project::class, AgentPreset::class, Workspace::class, Session::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -36,6 +36,14 @@ abstract class WalkcodeDatabase : RoomDatabase() {
             }
         }
 
+        /** Existing rows all get 0, so they keep their old order until the user drags one. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE workspaces ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE sessions ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         @Volatile private var instance: WalkcodeDatabase? = null
 
         fun get(context: Context): WalkcodeDatabase =
@@ -45,7 +53,7 @@ abstract class WalkcodeDatabase : RoomDatabase() {
 
         private fun build(context: Context): WalkcodeDatabase =
             Room.databaseBuilder(context, WalkcodeDatabase::class.java, NAME)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .addCallback(SeedBuiltInAgents)
                 .build()
 
