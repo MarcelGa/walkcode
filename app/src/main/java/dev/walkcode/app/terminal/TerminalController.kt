@@ -1,8 +1,11 @@
 package dev.walkcode.app.terminal
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -80,7 +83,42 @@ class TerminalController(
     // --- TerminalViewClient ---------------------------------------------------------------
 
     override fun onScale(scale: Float): Float = 1f
-    override fun onSingleTapUp(e: MotionEvent) = showKeyboard()
+    override fun onSingleTapUp(e: MotionEvent) {
+        val url = linkAt(e)
+        if (url != null) openLink(url) else showKeyboard()
+    }
+
+    /**
+     * The URL under a tap, if any. A long URL wraps onto the rows below it, so the whole wrapped
+     * line is read and the tapped cell is located by its offset from the first row.
+     */
+    private fun linkAt(e: MotionEvent): String? {
+        val emulator = view.currentSession?.emulator ?: return null
+        val screen = emulator.screen
+        val columns = emulator.mColumns
+        val lastRow = emulator.mRows - 1
+        val (tappedColumn, row) = view.getColumnAndRow(e, true).let { it[0] to it[1] }
+        if (row < -screen.activeTranscriptRows || row > lastRow) return null
+
+        var first = row
+        while (first > -screen.activeTranscriptRows && screen.getLineWrap(first - 1)) first--
+        var last = row
+        while (last < lastRow && screen.getLineWrap(last)) last++
+
+        // Rows first..last-1 are wrapped, so the text has no line breaks and each full row is
+        // exactly `columns` characters. Wide characters would shift this offset; URLs rarely have them.
+        val text = screen.getSelectedText(0, first, columns - 1, last)
+        val offset = (row - first) * columns + tappedColumn.coerceIn(0, columns - 1)
+        return TerminalLinks.urlAt(text, offset)
+    }
+
+    private fun openLink(url: String) {
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No app to open $url", e)
+        }
+    }
     override fun shouldBackButtonBeMappedToEscape(): Boolean = false
     override fun shouldEnforceCharBasedInput(): Boolean = true
     override fun shouldUseCtrlSpaceWorkaround(): Boolean = false
@@ -132,6 +170,7 @@ class TerminalController(
     override fun logStackTrace(tag: String, e: Exception) { Log.e(tag, "", e) }
 
     private companion object {
+        const val TAG = "WalkcodeTerm"
         const val DEFAULT_TEXT_SP = 12f
     }
 }
