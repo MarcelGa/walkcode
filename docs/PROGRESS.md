@@ -244,6 +244,61 @@ every 2 s while it changes and when the terminal is left. Opening the session sh
 **Verified:** `ScreenCacheTest` (JVM) and `assembleDebug`.
 **Not verified on a device:** how the cached text looks next to the live terminal after attach.
 
+## Voice orchestrator PoC (2026-10-23): step 2 (walk mode) built
+
+Decided in [DECISIONS.md](DECISIONS.md) (phone-only, OpenAI Realtime, preset voices per workspace).
+Step 1 is built: `voice/` (`RealtimeProtocol`, `RealtimeClient`, `VoiceSession`, `VoiceAudio`, `AudioRoute`,
+`OpenAiKey`), `ui/TalkScreen.kt` (status, red error line, "type instead of speaking"), key (masked, Done saves)
+and voice in Settings. JVM tests: `RealtimeProtocolTest`, `OpenAiKeyTest`.
+**Verified on the emulator against the live API (2026-10-25):** with an invalid key the socket opens, then an
+`error` event (`invalid_api_key`) arrives and the server closes; Talk now shows "Disconnected." with the
+message in red instead of staying "Live". `tools/spikes/voice-talk.ps1` drives Settings and Talk end to end.
+**Not verified yet:** a conversation with a valid key (needs `OPENAI_API_KEY` in `tools/local.env`), so the
+session settings (`gpt-realtime-2`, `gpt-4o-mini-transcribe` input transcription) are still unconfirmed; real
+speech, echo cancellation and speaker/headset routing on the S25.
+Phone finding: the first pasted key held a line break as its 7th character (likely a label line, e.g.
+"OpenAI", above the key); the next build glued the lines into one invalid key, and OpenAI rejected it with the
+"Incorrect API key … platform.openai.com/account/api-keys" message. `OpenAiKey.clean` now keeps the `sk-` token
+and also repairs a glued value on read (confirmed on the phone: stored 171 chars = 6-char label + line break +
+164-char `sk-proj-` key). With the cleaned key OpenAI accepts the key but refuses the session:
+`credit_balance_exhausted` ("You have no credits remaining"), so the account needs API credit before step 1
+can be verified. Talk runs only while its screen is open (no foreground service yet).
+Voice picker (2026-10-26): `ui/VoicePicker.kt` (`RealtimeVoicePicker`) is a dropdown of all ten Realtime
+preset voices with a play button on the field and on each entry; the sample says "Hey, this is voice agent
+<name>" via the speech endpoint (`voice/VoicePreview`, `gpt-4o-mini-tts`, raw 24 kHz PCM, cached in memory).
+It takes an `assistantName` and a "use default" entry (`noneLabel`/`noneVoice`) so per-workspace voices can
+reuse it. Settings uses it for the default voice. **Verified:** `VoicePreviewTest`, and on the emulator the
+menu, the play button and the request (HTTP 429 "no credits remaining", shown under the field).
+**Not verified:** hearing a sample (needs API credit).
+Step 1 verified by the user on the phone (2026-10-26): a voice conversation works with a key that has credit.
+Step 2, walk mode (2026-10-26): the Walk toggle moved from the terminal bar to the Projects top bar and now
+starts one app-wide assistant (`assistant/WalkAssistant`) with four functions (`assistant/WorkspaceTools`):
+`list_workspaces`, `workspace_overview` (last lines of every session's screen, one SSH connection per host),
+`read_session`, `propose_message` + `send_proposed` (only the proposed, read-back text can be sent). A strip under the Projects top bar shows its status and last line and opens `ui/WalkScreen.kt`
+(transcript with the functions that ran, typing instead of speaking, Start/Stop). `assistant/WalkService`
+keeps it listening with the screen off (microphone foreground service, Stop in the notification). The
+terminal's Walk/Hush buttons, its read-aloud loop, `walk/Speaker` and the platform TTS settings are gone;
+Dictate stays. Settings keeps the key, the default voice and the dictation settings.
+**Verified:** JVM tests (`WorkspaceDirectoryTest`, protocol tests for tools and function calls,
+`ResponseExtractorTest.screen_tail…`); `WorkspaceToolsTest` on the emulator against the Docker host
+(list, nothing sent without a proposal, overview and read show the sent text); on the emulator the toggle, the strip,
+the walk screen and the terminal bar (Dictate only); with a key without credit the strip shows the error and
+the service is not left running.
+**Verified with the live model on the emulator (typed, key from `tools/local.env`):** "what is going on"
+runs `list_workspaces` + `workspace_overview` and names the agent waiting on a question (`voice-talk.ps1`
+PASS); "tell the Demo agent yes" proposes "y", reads it back, and one typed "yes" sends it to the tmux pane.
+**Verified by the user on the S25:** walk mode keeps listening and answering with the phone locked.
+Fixed after that: stopping walk mode while a reply was still playing crashed the app (the track was released
+under a blocked `AudioTrack.write`); the capture and playback loops now own and release their audio objects.
+README screenshots regenerated (`tools/screenshots.ps1`, now with walk mode; it saves a placeholder key before
+the Settings shot so no real key fragment is published). Mockup v5 matches the new screens.
+**Not verified:** how well the model summarises real agent screens (only scripted ones so far), echo and
+interrupting on the phone's loudspeaker.
+Steps: (1) Realtime voice session from the phone with a key from Settings;
+(2) workspace tools over the existing SSH connections; (3) two or three workspaces with distinct voices
+and persona prompts; (4) measure time to first audio, interruption handling and cost per minute on the
+S25. Open: the foreground-service and background-audio path for Android 15+.
+
 ## Manual reorder (2026-10-25)
 
 Holding a project, workspace or session row and dragging it reorders the list (`ui/Reorderable.kt`,

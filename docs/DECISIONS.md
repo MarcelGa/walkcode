@@ -95,9 +95,28 @@ revisit. Each line is a decision, not an open question.
   alerts can be switched off; the battery-optimisation prompt is shown **once**, on the first Watch.
 - Windows sessions get a **`WALKCODE_SESSION=1`** marker so users can adapt their PowerShell profile.
 - App icon: terminal prompt `>_` (green on the app's dark background), adaptive + monochrome.
-- **Walk mode** (per-app toggle in the terminal bar + Settings): when a session's screen has been quiet
-  for 2.5 s after changing, the new text is read aloud with the platform TTS; a Dictate button records
-  speech (platform `SpeechRecognizer`, on-device if available, no GMS dependency) and types it into the
-  focused session, pressing Enter afterwards unless "Send dictation automatically" is off.
-  Response text comes from `capture-pane` over a second SSH channel (the attached tmux view has no
-  scrollback), diffed against a baseline taken before the user's last message.
+- **Walk mode** (changed 2026-10-26 at the user's request) is the voice assistant for all workspaces,
+  switched on and off in the **Projects top bar** (no longer per session, no longer in Settings). While
+  on it runs app-wide (`assistant/WalkAssistant`) and keeps listening with the screen off through a
+  microphone foreground service (`WalkService`, Stop in its notification). It is not persisted: the app
+  never starts listening by itself. The old per-session read-aloud (platform TTS, Walk/Hush buttons) is
+  gone so two voices never talk at once. **Dictate** stays in the terminal bar: platform
+  `SpeechRecognizer` (on-device if available, no GMS), typed into the focused session, Enter afterwards
+  unless "Send dictation automatically" is off.
+
+## Voice orchestrator PoC (2026-10-23)
+
+- **Phone-only.** The voice orchestrator runs entirely on the phone. No homelab gateway and no new
+  server component; the "no backend" decision still holds.
+- Speech model for the PoC: **OpenAI Realtime API** (hosted, preset voices). No voice cloning. Each
+  workspace maps to a different preset voice with its own persona prompt. Self-hosted PersonaPlex is
+  deferred until a GPU host exists.
+- The OpenAI API key is entered by the user in Settings and kept in app-private storage. It is never
+  bundled in the APK. Audio and workspace content sent to the model leave the device; accepted for a
+  personal PoC, to be revisited before using private repositories.
+- Workspace tools (`list_workspaces`, `workspace_overview`, `read_session`, `propose_message`, `send_proposed`) run over the
+  app's existing SSH connections, not through a separate service.
+- The session runs in a microphone foreground service while walk mode is on.
+- Nothing is typed into a session that the user did not hear: `propose_message` stores the text (it sends
+  nothing) and the model reads it back; `send_proposed` sends only that stored text, after the user's yes.
+  (A first design with one `send_to_session` + `confirmed` flag made the model ask twice; replaced.)

@@ -2,6 +2,7 @@ package dev.walkcode.app.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.walkcode.app.voice.OpenAiKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -36,6 +37,21 @@ class AppSettings private constructor(private val prefs: SharedPreferences) {
     /** BCP-47 tag for dictation. */
     private val _recognitionLang = MutableStateFlow(prefs.getString(KEY_RECOGNITION_LANG, null))
     val recognitionLang: StateFlow<String?> = _recognitionLang
+
+    /** OpenAI API key for the voice PoC. Only in this app's private preferences; never in the config backup. */
+    // Cleaned on read too: values saved by earlier builds may still hold a raw multi-line paste.
+    private val _openAiKey = MutableStateFlow(OpenAiKey.clean(prefs.getString(KEY_OPENAI_KEY, null)))
+    val openAiKey: StateFlow<String?> = _openAiKey
+    /** Preset OpenAI Realtime voice (no cloning). */
+    private val _realtimeVoice = MutableStateFlow(prefs.getString(KEY_REALTIME_VOICE, null) ?: DEFAULT_REALTIME_VOICE)
+    val realtimeVoice: StateFlow<String> = _realtimeVoice
+
+    fun setOpenAiKey(v: String?) {
+        val clean = OpenAiKey.clean(v)
+        put(KEY_OPENAI_KEY, clean)
+        _openAiKey.value = clean
+    }
+    fun setRealtimeVoice(v: String) { put(KEY_REALTIME_VOICE, v); _realtimeVoice.value = v }
 
     /** Changing the engine invalidates the voice, which belongs to one engine. */
     fun setTtsEngine(v: String?) { put(KEY_TTS_ENGINE, v); _ttsEngine.value = v; setTtsVoice(null) }
@@ -86,6 +102,9 @@ class AppSettings private constructor(private val prefs: SharedPreferences) {
         private const val KEY_WALK_MODE = "walk_mode"
         private const val KEY_AUTO_SEND = "dictation_auto_send"
         private const val KEY_BATTERY_PROMPTED = "battery_prompted"
+        private const val KEY_OPENAI_KEY = "openai_key"
+        private const val KEY_REALTIME_VOICE = "realtime_voice"
+        const val DEFAULT_REALTIME_VOICE = "marin"
 
         @Volatile private var instance: AppSettings? = null
 

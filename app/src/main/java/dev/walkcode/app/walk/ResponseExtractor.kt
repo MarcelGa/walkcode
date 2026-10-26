@@ -36,6 +36,25 @@ object ResponseExtractor {
         return out.joinToString("\n")
     }
 
+    /**
+     * The last [maxLines] meaningful lines of a screen capture, without TUI chrome, for the voice
+     * assistant to summarise. Unlike [newText] the input line is kept: a question the agent is
+     * waiting on often sits right above it.
+     */
+    fun screenTail(screen: String, maxLines: Int): String =
+        screen.lineSequence()
+            .mapNotNull { raw ->
+                val line = raw.replace(borderChars, "")
+                when {
+                    !inputLine.matches(line) -> clean(raw, null)
+                    line.drop(1).any { it.isLetterOrDigit() } -> line.trim()
+                    else -> null   // an empty prompt
+                }
+            }
+            .toList()
+            .takeLast(maxLines)
+            .joinToString("\n")
+
     private fun clean(raw: String, sent: String?): String? {
         var line = raw.replace(borderChars, "")
         if (line.none { it.isLetterOrDigit() }) return null

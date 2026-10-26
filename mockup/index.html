@@ -100,6 +100,13 @@
   .notif .app{font-weight:600;margin:6px 0 2px}
   .notif .msg{color:var(--fg)}
   .pad{padding:10px}
+  .wstrip{padding:10px 14px;background:var(--panel);color:var(--accent);font-size:12px;border-bottom:1px solid var(--line)}
+  .chat{flex:1;padding:12px 14px;overflow:auto;font-size:13px;line-height:1.45}
+  .chat .st{color:var(--mut);font-size:12px;margin-bottom:10px}
+  .chat .u{margin:6px 0} .chat .a{margin:6px 0;color:var(--accent)}
+  .chat .tool{margin:4px 0;color:var(--mut);font-style:italic;font-size:12px}
+  .typebox{display:flex;gap:8px;align-items:center;padding:8px 12px}
+  .typebox .in{flex:1;border:1px solid var(--line);border-radius:8px;padding:9px 10px;color:#4a5765;font-size:12px}
   [data-tip]{cursor:help}
   /* One floating bubble for all tooltips, so phone frames (overflow:hidden) never clip it. */
   .tip-bubble{position:fixed;z-index:50;display:none;max-width:260px;background:#1f2a37;color:var(--fg);
@@ -108,10 +115,10 @@
 </style>
 </head>
 <body>
-  <h1>Walkcode — clickable mockup v4</h1>
-  <div class="sub">Projects → Workspaces → Sessions, Hosts (with the phone-key setup), Settings
-    (voice, backup), the terminal including the cached screen while reconnecting, and the
-    alerts. Matches the app as of 2026-10-21. Static; hover states only.
+  <h1>Walkcode — clickable mockup v5</h1>
+  <div class="sub">Projects (with walk mode, the voice assistant for all workspaces) → Workspaces → Sessions,
+    Hosts (with the phone-key setup), Settings (dictation, voice assistant, backup), the terminal including
+    the cached screen while reconnecting, and the alerts. Matches the app as of 2026-10-26. Static; hover states only.
     <strong>Hover or tap anything with a dotted underline or a question cursor to see what it is.</strong></div>
 
   <div class="stage">
@@ -121,7 +128,8 @@
       <figcaption class="cap" data-tip="Projects tab: a project is a local colour label that groups workspaces. Nothing about it is sent to a host.">Projects</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
-        <div class="bar"><span>Projects</span><span class="act" data-tip="Add a new project">+</span></div>
+        <div class="bar"><span>Projects</span><span class="act"><span class="pill hot" data-tip="Walk mode is on: the voice assistant listens and talks about all your workspaces, also with the phone locked. Tap to turn it off.">Walk: on</span> &nbsp; <span data-tip="Add a new project">+</span></span></div>
+        <div class="wstrip" data-tip="While walk mode is on: its last sentence (or its status, or why it stopped, in red). Tap to open the conversation.">“In TollBff the agent finished the refactor and asks whether to run the migration.”</div>
         <div class="list">
           <div class="pcard" data-tip="A project. Tap to open its workspaces.">
             <div class="hd"><b>Personal</b><span class="badge" data-tip="Number of watched sessions with unread output or alerts in this project">1</span></div>
@@ -132,7 +140,31 @@
             <div class="meta">3 workspaces · claude, opencode · 2 hosts</div>
           </div>
         </div>
-        <div class="nav"><div class="sel" data-tip="Projects tab (current screen)">Projects &nbsp;<span class="badge">3</span></div><div data-tip="Hosts tab: the machines you connect to over SSH, and this phone's device key">Hosts</div><div data-tip="Settings tab: alerts, walk mode, voice, config backup and battery">Settings</div></div>
+        <div class="nav"><div class="sel" data-tip="Projects tab (current screen)">Projects &nbsp;<span class="badge">3</span></div><div data-tip="Hosts tab: the machines you connect to over SSH, and this phone's device key">Hosts</div><div data-tip="Settings tab: alerts, dictation, voice assistant, config backup and battery">Settings</div></div>
+      </div>
+    </figure>
+
+    <!-- Walk mode -->
+    <figure class="phone">
+      <figcaption class="cap" data-tip="Walk mode: one voice conversation about all workspaces. It reads the sessions' screens over SSH and can type an answer into a session, but only text it read back to you and you said yes to.">Walk mode</figcaption>
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
+        <div class="bar"><span class="mut" data-tip="Back to Projects (walk mode keeps running)">← Walk mode</span><span></span></div>
+        <div class="chat">
+          <div class="st" data-tip="Live: listening. The voice is the default from Settings; audio goes to a headset if one is connected, else the loudspeaker.">Listening — speak or type. Voice: Marin · Audio: speaker</div>
+          <div class="u">You: Is any agent waiting for me?</div>
+          <div class="tool" data-tip="What the assistant looked at, so you can tell an answer from a guess">· Looking at the workspaces</div>
+          <div class="tool">· Reading the screens</div>
+          <div class="a">Walkcode: In TollBff the agent finished the refactor and asks whether to run the migration. The others are working.</div>
+          <div class="u">You: Tell it yes, run it.</div>
+          <div class="tool" data-tip="Prepared, not sent: nothing reaches a session until you confirm the text read back to you">· Proposed for TollBff: yes, run the migration</div>
+          <div class="a">Walkcode: I'll send “yes, run the migration” to TollBff. Send it?</div>
+          <div class="u">You: Yes.</div>
+          <div class="tool">· Sending to TollBff: yes, run the migration</div>
+          <div class="a">Walkcode: Sent.</div>
+        </div>
+        <div class="typebox"><div class="in" data-tip="Type instead of speaking, e.g. somewhere loud">Type instead of speaking</div><span class="pill">Send</span></div>
+        <div class="btn ghost" data-tip="Ends walk mode (also from the notification while the phone is locked)">Stop walk mode</div>
       </div>
     </figure>
 
@@ -200,7 +232,7 @@
           </div>
         </div>
         <div class="walk">
-          <div class="key on" data-tip="Walk mode is on: new agent output is read aloud once it goes quiet. Tap to turn it off.">Walk: on</div><div class="key" data-tip="Speak your reply. It is transcribed and typed into the session. Tap again to finish.">Dictate</div><div class="key" data-tip="Stop reading the current answer aloud right now">Hush</div>
+          <div class="key" data-tip="Speak your reply. It is transcribed and typed into the session. Tap again to finish. (Walk mode, the voice assistant, is switched on from the Projects screen.)">Dictate</div>
         </div>
         <div class="keys">
           <div class="key" data-tip="Ctrl+C: interrupt the agent">^C</div><div class="key" data-tip="Escape">Esc</div><div class="key" data-tip="Tab key (completion)">Tab</div>
@@ -228,7 +260,7 @@
           <div class="banner" data-tip="The app is trying to reach the host again. It retries on its own.">Connecting to home-server…<span>Last screen from this session, read-only until attached</span></div>
         </div>
         <div class="walk">
-          <div class="key" data-tip="Walk mode is off">Walk: off</div><div class="key" data-tip="Dictation is available once the session is attached">Dictate</div><div class="key" data-tip="Stop reading aloud right now">Hush</div>
+          <div class="key" data-tip="Dictation is available once the session is attached">Dictate</div>
         </div>
         <div class="keys">
           <div class="key">^C</div><div class="key">Esc</div><div class="key">Tab</div>
@@ -288,7 +320,7 @@
 
     <!-- Settings -->
     <figure class="phone">
-      <figcaption class="cap" data-tip="Settings: alerts, walk mode (reading answers aloud and dictation), voice, config backup and battery.">Settings</figcaption>
+      <figcaption class="cap" data-tip="Settings: alerts, dictation, the voice assistant (walk mode's key and voice), config backup and battery.">Settings</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
         <div class="bar"><span>Settings</span><span></span></div>
@@ -299,18 +331,14 @@
           <div class="pad" style="padding:4px 14px 8px;display:flex;gap:6px;flex-wrap:wrap" data-tip="How long a session must be silent before it counts as quiet. Default 15 s. Highlighted: current value.">
             <span class="pill">5s</span><span class="pill">10s</span><span class="pill hot">15s</span><span class="pill">30s</span><span class="pill">60s</span><span class="pill">120s</span>
           </div>
-          <div class="sect">Walk mode</div>
-          <div class="row" data-tip="Walk mode: the app reads new agent output aloud once it goes quiet"><div class="t"><b>Read responses aloud</b><span>Speak new agent output once it goes quiet</span></div><i class="sw on"></i></div>
+          <div class="sect">Dictation</div>
           <div class="row" data-tip="After dictation, press Enter for you so the agent gets the text. Off leaves it in the prompt to check first."><div class="t"><b>Send dictation automatically</b><span>Press Enter after the dictated text</span></div><i class="sw on"></i></div>
-          <div class="sect">Voice</div>
-          <div class="row" data-tip="The text-to-speech engine that reads answers aloud. Engine default is the phone's choice."><div class="t"><b>Speech engine</b><span>Engine default</span></div></div>
-          <div class="row" data-tip="The voice used by the chosen engine"><div class="t"><b>Voice</b><span>Phone default</span></div></div>
-          <div class="pad" style="padding:4px 14px 8px;display:flex;gap:6px;flex-wrap:wrap" data-tip="Speaking speed. Highlighted: current value.">
-            <span class="pill">0.8x</span><span class="pill hot">1.2x</span><span class="pill">1.5x</span><span class="pill">2.0x</span>
-          </div>
           <div class="row" data-tip="Which speech recognizer turns your dictation into text. Phone default uses on-device recognition when available."><div class="t"><b>Dictation recognizer</b><span>Phone default (on-device if available)</span></div></div>
           <div class="row" data-tip="The language your dictation is recognized in. Languages marked as not installed can be downloaded for offline use."><div class="t"><b>Dictation language</b><span>English (United States) · installed</span></div></div>
           <div class="row" data-tip="A language that is not installed yet. Download fetches its recognition model to the phone."><div class="t"><b>Deutsch</b><span>not installed</span></div><span class="pill" data-tip="Download the recognition model for this language">Download</span></div>
+          <div class="sect">Voice assistant</div>
+          <div class="row" data-tip="The preset OpenAI voice walk mode speaks with. ▶ plays a sample."><div class="t"><b>Default voice</b><span>Marin</span></div><span class="pill on" data-tip="Play a sample of this voice">▶</span></div>
+          <div class="row" data-tip="Needed for walk mode. Shown masked; kept on this phone only and never written to a config backup."><div class="t"><b>OpenAI API key</b><span>Saved: sk-proj-…a1b2 (164 characters)</span></div><span class="pill" data-tip="Forget the key">Remove</span></div>
           <div class="sect">Backup</div>
           <div class="row" data-tip="Saves hosts, projects, workspaces, agent presets and settings to a JSON file. Keys are never included, so re-authorize the phone on each host after importing."><div class="t"><b>Export config</b><span>Hosts, projects, workspaces, agent presets and settings. No keys.</span></div><span class="pill" data-tip="Choose where to save walkcode-config.json">Export</span></div>
           <div class="row" data-tip="Loads a config file made by Export. Anything already present by name is kept; settings are replaced."><div class="t"><b>Import config</b><span>Adds what is missing; existing names are kept.</span></div><span class="pill" data-tip="Pick a config file to import">Import</span></div>

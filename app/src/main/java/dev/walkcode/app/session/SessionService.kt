@@ -95,8 +95,20 @@ class SessionService(
         }
     }
 
-    /** Pane text of [session] including recent history, or null if the host refused. */
-    suspend fun capture(client: SSHClient, host: Host, session: Session, history: Int = 300): String? {
+    /** Types [text] into [session] and presses Enter, as if the user had typed it in the terminal. */
+    suspend fun sendText(host: Host, session: Session, text: String) {
+        val connected = connect(host)
+        try {
+            val mux = MuxCommands(host.shell)
+            check(exec(connected.client, mux.hasSession(session.tmuxName)).status == 0) { "the session is not running" }
+            for (cmd in mux.sendCommand(session.tmuxName, text)) exec(connected.client, cmd)
+        } finally {
+            close(connected.client)
+        }
+    }
+
+    /** Pane text of [session] including [history] lines of scrollback (null: the visible screen only), or null if the host refused. */
+    suspend fun capture(client: SSHClient, host: Host, session: Session, history: Int? = 300): String? {
         val mux = MuxCommands(host.shell)
         val full = exec(client, mux.capture(session.tmuxName, history))
         if (full.status == 0) return full.output

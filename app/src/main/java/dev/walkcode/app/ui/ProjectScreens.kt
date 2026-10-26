@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.walkcode.app.data.Project
 import dev.walkcode.app.monitor.Monitor
+import dev.walkcode.app.assistant.WalkAssistant
+import dev.walkcode.app.data.AppSettings
 import androidx.compose.foundation.layout.fillMaxWidth
 import dev.walkcode.app.data.WalkcodeRepository
 import kotlinx.coroutines.launch
@@ -39,7 +41,16 @@ val ProjectPalette = listOf(0xFF3DDC84, 0xFF6AA9FF, 0xFFFFB020, 0xFFFF6B6B, 0xFF
 fun projectColor(p: Project?): Color = p?.color?.let { Color(it) } ?: WC.Muted
 
 @Composable
-fun ProjectsScreen(repo: WalkcodeRepository, monitor: Monitor, onOpenProject: (Long?) -> Unit) {
+fun ProjectsScreen(
+    repo: WalkcodeRepository,
+    monitor: Monitor,
+    walk: WalkAssistant,
+    settings: AppSettings,
+    onOpenProject: (Long?) -> Unit,
+    onOpenWalk: () -> Unit,
+) {
+    val walkOn by walk.on.collectAsState()
+    val toggleWalk = rememberWalkToggle(walk, settings)
     val paused by monitor.paused.collectAsState()
     val projects by repo.projects.collectAsState(emptyList())
     val workspaces by repo.workspaces.collectAsState(emptyList())
@@ -64,7 +75,12 @@ fun ProjectsScreen(repo: WalkcodeRepository, monitor: Monitor, onOpenProject: (L
         return sessions.count { it.workspaceId in ids }
     }
 
-    TopBar("Projects") { BarAction("+") { adding = true } }
+    TopBar("Projects") {
+        // Walk mode: the voice assistant for all workspaces (see WalkScreen).
+        Pill(if (walkOn) "Walk: on" else "Walk: off", onClick = toggleWalk, hot = walkOn)
+        BarAction("+") { adding = true }
+    }
+    WalkStrip(walk, onOpen = onOpenWalk)
     if (paused) {
         Text(
             "Monitoring paused 2014 tap to resume", color = WC.Warn, fontSize = 13.sp,

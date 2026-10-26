@@ -44,10 +44,19 @@ pwsh -File tools\spikes\m2-ui.ps1             # Compose UI end to end (Docker ho
 pwsh -File tools\spikes\m3-monitor.ps1        # background alerts, reconnect (~4 min, Docker host)
 pwsh -File tools\spikes\m3-timeout.ps1        # Android 15 dataSync time-limit pause and resume
 pwsh -File tools\spikes\m4-settings.ps1       # rename, settings, battery prompt
+pwsh -File tools\spikes\voice-talk.ps1        # walk mode: key, Projects toggle, typed question -> function -> spoken reply
 ```
 
 A new emulator/phone has a new Keystore key: run `m1-connector.ps1` once so it is authorized on
 the Docker host. For testing on the real phone see [docs/DEVICE-TESTING.md](docs/DEVICE-TESTING.md).
+
+`voice-talk.ps1` needs `OPENAI_API_KEY` in `tools/local.env` (typed into the app, never printed) and
+an emulator with audio: it starts one without `-no-audio` if none is running, unlike the other runners.
+The emulator mic is silent, so the runner types its message; real speech is only testable on the phone.
+Voice logs carry event types and function names only: `adb logcat -s WalkcodeVoice:V`.
+Walk mode's functions without the voice model (Docker host, no key needed):
+`adb shell am instrument -w -e class dev.walkcode.app.assistant.WorkspaceToolsTest dev.walkcode.app.test/androidx.test.runner.AndroidJUnitRunner`
+after installing both APKs.
 
 ## Layout
 

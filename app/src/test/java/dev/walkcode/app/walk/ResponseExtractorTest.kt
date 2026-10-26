@@ -46,6 +46,23 @@ class ResponseExtractorTest {
         assertEquals("ok", ResponseExtractor.newText("ok", "ok\nok"))
     }
 
+    @Test fun screen_tail_keeps_the_last_meaningful_lines_and_a_typed_prompt() {
+        val screen = """
+            ╭────────────────────╮
+            │ ● Ran the tests    │
+            │ 3 failed, 41 passed│
+            ╰────────────────────╯
+            Should I fix the 3 failures?
+            > yes please
+            >
+            ? for shortcuts
+        """.trimIndent()
+        assertEquals(
+            "3 failed, 41 passed\nShould I fix the 3 failures?\n> yes please",
+            ResponseExtractor.screenTail(screen, 3),
+        )
+    }
+
     @Test fun chunks_respect_limit_on_line_boundaries() {
         val chunks = ResponseExtractor.chunks("aaaa\nbbbb\ncccc", 9)
         assertEquals(listOf("aaaa\nbbbb", "cccc"), chunks)

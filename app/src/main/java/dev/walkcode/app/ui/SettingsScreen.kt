@@ -14,7 +14,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.produceState
-import dev.walkcode.app.walk.Speaker
 import dev.walkcode.app.walk.VoiceCatalog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +34,15 @@ import androidx.lifecycle.LifecycleEventObserver
 import dev.walkcode.app.data.AppSettings
 import dev.walkcode.app.data.WalkcodeRepository
 import dev.walkcode.app.monitor.Battery
+import dev.walkcode.app.voice.OpenAiKey
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.platform.LocalFocusManager
 
 private val QuietChoices = listOf(5, 10, 15, 30, 60, 120)
 
@@ -43,7 +51,6 @@ fun ColumnScope.SettingsScreen(repo: WalkcodeRepository, settings: AppSettings) 
     val context = LocalContext.current
     val quietSec by settings.quietAfterSec.collectAsState()
     val quietOn by settings.quietAlerts.collectAsState()
-    val walkOn by settings.walkMode.collectAsState()
     val autoSend by settings.dictationAutoSend.collectAsState()
 
     // The exemption is granted in a system dialog, so re-read it whenever we come back.
@@ -77,13 +84,8 @@ fun ColumnScope.SettingsScreen(repo: WalkcodeRepository, settings: AppSettings) 
             }
         }
 
-        SectionLabel("Walk mode")
-        ListRow(
-            title = "Read responses aloud",
-            subtitle = "Speak new agent output once it goes quiet (also the Walk button in a terminal)",
-            subtitleLines = 3,
-            trailing = { Switch(checked = walkOn, onCheckedChange = settings::setWalkMode) },
-        )
+        // Walk mode itself is the voice assistant, switched on from the Projects screen.
+        SectionLabel("Dictation")
         ListRow(
             title = "Send dictation automatically",
             subtitle = "Press Enter after the dictated text; off leaves it in the prompt for you to check",
@@ -91,7 +93,9 @@ fun ColumnScope.SettingsScreen(repo: WalkcodeRepository, settings: AppSettings) 
             trailing = { Switch(checked = autoSend, onCheckedChange = settings::setDictationAutoSend) },
         )
 
-        VoiceSettings(settings)
+        DictationSettings(settings)
+
+        RealtimeSettings(settings)
 
         SectionLabel("Background")
         ListRow(
@@ -106,7 +110,53 @@ fun ColumnScope.SettingsScreen(repo: WalkcodeRepository, settings: AppSettings) 
     }
 }
 
-private val RateChoices = listOf(0.8f, 1.0f, 1.2f, 1.5f, 2.0f)
+/** Voice assistant (walk mode): the OpenAI key (kept on this phone only) and the preset voice. */
+@Composable
+private fun ColumnScope.RealtimeSettings(settings: AppSettings) {
+    val savedKey by settings.openAiKey.collectAsState()
+    val voice by settings.realtimeVoice.collectAsState()
+    var draft by remember { mutableStateOf("") }
+    val focus = LocalFocusManager.current
+    // Also on the keyboard's Done key: with the keyboard open the Save button sits behind it.
+    val save: () -> Unit = {
+        if (draft.isNotBlank()) {
+            settings.setOpenAiKey(draft)
+            draft = ""
+            focus.clearFocus()
+        }
+    }
+
+    SectionLabel("Voice assistant")
+    Text(
+        "Walk mode on the Projects screen talks to this assistant about all your workspaces.",
+        color = WC.Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+    )
+    RealtimeVoicePicker(
+        label = "Default voice",
+        selected = voice,
+        onSelect = { v -> v?.let(settings::setRealtimeVoice) },
+        apiKey = savedKey,
+    )
+    ListRow(
+        title = "OpenAI API key",
+        subtitle = savedKey?.let { "Saved: ${OpenAiKey.masked(it)} (${it.length} characters). On this phone only; never in config backups." }
+            ?: "Not set. Needed for walk mode.",
+        subtitleLines = 3,
+        trailing = { if (savedKey != null) Pill("Remove", onClick = { settings.setOpenAiKey(null) }) },
+    )
+    OutlinedTextField(
+        value = draft,
+        onValueChange = { draft = it },
+        label = { Text(if (savedKey != null) "Replace key" else "Paste key") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { save() }),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+    )
+    PrimaryButton("Save key", enabled = draft.isNotBlank(), onClick = save)
+}
+
 
 /** Null id means "phone default". */
 @Composable
@@ -162,20 +212,12 @@ private fun ChoiceDialog(
 }
 
 @Composable
-private fun VoiceSettings(settings: AppSettings) {
+private fun DictationSettings(settings: AppSettings) {
     val context = LocalContext.current
-    val engine by settings.ttsEngine.collectAsState()
-    val voice by settings.ttsVoice.collectAsState()
-    val rate by settings.ttsRate.collectAsState()
     val recognizer by settings.recognizer.collectAsState()
     val lang by settings.recognitionLang.collectAsState()
     var dialog by remember { mutableStateOf<String?>(null) }
-
-    // Loaded off a throwaway TTS instance; reloaded when the engine changes because voices belong to one engine.
-    val info by produceState<VoiceCatalog.TtsInfo?>(null, engine) { value = VoiceCatalog.tts(context, engine) }
     val recognizers = remember { VoiceCatalog.recognizers(context) }
-    val speaker = remember { Speaker(context, settings) }
-    DisposableEffect(Unit) { onDispose { speaker.shutdown() } }
 
     // Reloaded when the recognizer changes (each has its own installed languages) and after a download finishes.
     var refresh by remember { mutableIntStateOf(0) }
@@ -194,21 +236,6 @@ private fun VoiceSettings(settings: AppSettings) {
         }
     }
 
-    val engines = info?.engines.orEmpty()
-    val voices = info?.voices.orEmpty().sortedBy { VoiceCatalog.voiceLabel(it) }
-
-    SectionLabel("Voice")
-    ListRow("Speech engine", engines.firstOrNull { it.id == engine }?.label ?: "Phone default", onClick = { dialog = "engine" })
-    ListRow(
-        "Voice",
-        voices.firstOrNull { it.name == voice }?.let(VoiceCatalog::voiceLabel) ?: "Engine default",
-        onClick = { dialog = "voice" },
-    )
-    Text("Speed", color = WC.Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 20.dp, top = 8.dp))
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (r in (RateChoices + rate).distinct().sorted()) Pill("${r}x", hot = r == rate, onClick = { settings.setTtsRate(r) })
-        Pill("Test", onClick = { speaker.speak("This is how responses will sound while you walk.") })
-    }
     ListRow(
         "Dictation recognizer",
         recognizers.firstOrNull { it.id == recognizer }?.label ?: "Phone default (on-device if available)",
@@ -221,11 +248,6 @@ private fun VoiceSettings(settings: AppSettings) {
     )
 
     when (dialog) {
-        "engine" -> ChoiceDialog("Speech engine", engines, engine, settings::setTtsEngine) { dialog = null }
-        "voice" -> ChoiceDialog(
-            "Voice", voices.map { VoiceCatalog.Choice(it.name, VoiceCatalog.voiceLabel(it)) }, voice, settings::setTtsVoice,
-            onTest = { name -> voices.firstOrNull { it.name == name }?.let { speaker.preview(VoiceCatalog.sampleFor(it), name) } },
-        ) { speaker.stop(); dialog = null }
         "recognizer" -> ChoiceDialog("Dictation recognizer", recognizers, recognizer, settings::setRecognizer) { dialog = null }
         "lang" -> ChoiceDialog(
             "Dictation language", languages.orEmpty(), lang, settings::setRecognitionLang,

@@ -28,6 +28,7 @@ import dev.walkcode.app.data.AppSettings
 import dev.walkcode.app.monitor.Monitor
 import dev.walkcode.app.monitor.MonitorService
 import dev.walkcode.app.session.SessionService
+import dev.walkcode.app.assistant.WalkAssistant
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 
@@ -35,6 +36,7 @@ private sealed interface Route {
     data object Projects : Route
     data object Hosts : Route
     data object Settings : Route
+    data object Walk : Route
     data class Project(val id: Long?) : Route
     data class Workspace(val id: Long) : Route
     data class WorkspaceEditor(val id: Long?, val projectId: Long?) : Route
@@ -51,6 +53,7 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
     val service = remember { SessionService(repo) }
     val monitor = remember { Monitor.get(context) }
     val settings = remember { AppSettings.get(context) }
+    val walk = remember { WalkAssistant.get(context) }
     // Top-level tabs replace each other; everything else stacks on the current tab.
     val stack = remember { mutableStateListOf<Route>(Route.Projects) }
     val current = stack.last()
@@ -84,7 +87,7 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
                 when (val r = current) {
                     Route.Projects -> {
-                        ProjectsScreen(repo, monitor, onOpenProject = { push(Route.Project(it)) })
+                        ProjectsScreen(repo, monitor, walk, settings, onOpenProject = { push(Route.Project(it)) }, onOpenWalk = { push(Route.Walk) })
                         Spacer1(Modifier.weight(1f))
                     }
                     Route.Hosts -> {
@@ -94,6 +97,7 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
                     Route.Settings -> {
                         SettingsScreen(repo, settings)
                     }
+                    Route.Walk -> WalkScreen(walk, settings, onBack = ::pop)
                     is Route.Project -> ProjectDetailScreen(
                         repo, monitor, r.id, onBack = ::pop,
                         onOpenWorkspace = { push(Route.Workspace(it)) },

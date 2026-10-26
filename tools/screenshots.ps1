@@ -1,7 +1,8 @@
 # Regenerates the README screenshots (docs/img/*.png) on the emulator against the Docker
 # test host. Needs the state left by `tools\spikes\m2-ui.ps1` (host "docker", project "Work",
 # workspace "Demo", one session), so run that first. The terminal shows a scripted demo
-# conversation, not a real agent.
+# conversation, not a real agent. The walk-mode shot asks the voice assistant about it, so the app
+# needs an OpenAI key with credit (one short request).
 #   pwsh -File tools\screenshots.ps1
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot\..").Path
@@ -58,19 +59,39 @@ EOT
 & $adb shell am start -n dev.walkcode.app/.MainActivity | Out-Null
 Start-Sleep 4
 Tap 'Work'; Tap 'Demo'
-Tap '#1'
+# The session row shows the agent's title once it has one, else "#1".
+if ((Dump).SelectNodes('//node') | Where-Object { $_.text -eq 'testhost' }) { Tap 'testhost' } else { Tap '#1' }
 Start-Sleep 4
 Host-Run 'tmux send-keys -t wc-demo-1 -l "clear; cat /tmp/demo.txt"; tmux send-keys -t wc-demo-1 Enter' | Out-Null
 Start-Sleep 2
 Hide-Keyboard
-Tap 'Walk: off'
-Start-Sleep 1
-Shot 'terminal-walk'
+Shot 'terminal'
 
-# Back to the tabs, then Settings and the voice section.
+# Walk mode: needs an OpenAI key with credit saved in the app (tools\spikes\voice-talk.ps1 saves one).
 1..3 | ForEach-Object { & $adb shell input keyevent 4; Start-Sleep -Milliseconds 700 }
+& $adb logcat -c
+Tap 'Walk: off'
+Tap 'Walk mode: listening' -Prefix
+Tap 'Type instead of speaking'
+& $adb shell input text ('What did the agent in Demo just finish?' -replace ' ', '%s')
+& $adb shell input keyevent 66
+# The answer follows the function results: wait for the second finished response, then its audio.
+$deadline = (Get-Date).AddSeconds(45)
+while ((Get-Date) -lt $deadline -and ([regex]::Matches(((& $adb logcat -d -s WalkcodeVoice:V) -join "`n"), 'event response\.done')).Count -lt 2) { Start-Sleep 1 }
+Start-Sleep 3
+Hide-Keyboard
+Shot 'walk-mode'
+Tap 'Stop walk mode'
+Tap 'Walk mode'   # the top bar's back arrow and title
+
+# Settings: dictation and the voice assistant section. The real key's masked tail must not end up
+# in a public image, so a placeholder replaces it first (voice-talk.ps1 saves the real one again).
 Tap 'Settings'
-& $adb shell input swipe 540 1900 540 600 400
+& $adb shell input swipe 540 1900 540 900 400
+Start-Sleep 1
+Tap 'Replace key'
+& $adb shell input text 'sk-proj-placeholder-not-a-real-key-a1b2'
+& $adb shell input keyevent 66
 Start-Sleep 1
 Shot 'settings-voice'
 Write-Output "screenshots: $out"
