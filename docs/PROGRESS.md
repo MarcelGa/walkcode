@@ -318,7 +318,9 @@ Known gap: a response still running when walk mode is stopped is billed but not 
 arrives after the socket is closed).
 Mockup v6 (Settings row, new Settings › Voice screen, cost line on the walk screen), README and its
 screenshots (`walk-mode.png` with the cost line, `settings-voice.png` with models and usage) updated.
-Next: shorter context (trim tool outputs, `truncation`), idle auto-stop.
+Further cost work (shorter context, idle auto-stop, shorter answers, push-to-talk, a text-in/text-out
+economy engine) is written down in [VOICE-COSTS.md](VOICE-COSTS.md) and **deferred on purpose**: not to be
+started until the user decides, based on the measured usage.
 
 ## Manual reorder (2026-10-25)
 

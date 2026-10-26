@@ -125,6 +125,8 @@ revisit. Each line is a decision, not an open question.
   default `gpt-realtime-2`). **Automated tests that call OpenAI use the cheapest model**
   (`CHEAPEST_MODEL`, `gpt-realtime-2.1-mini`) and stop before the first request if walk mode starts on
   any other model, so test runs do not drain the account.
+- (2026-10-26) Further cost optimizations are **deferred** until real usage has been measured; the
+  candidates and their trade-offs are in [VOICE-COSTS.md](VOICE-COSTS.md). Do not start them unasked.
 - Nothing is typed into a session that the user did not hear: `propose_message` stores the text (it sends
   nothing) and the model reads it back; `send_proposed` sends only that stored text, after the user's yes.
   (A first design with one `send_to_session` + `confirmed` flag made the model ask twice; replaced.)
