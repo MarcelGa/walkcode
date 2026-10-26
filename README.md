@@ -131,7 +131,7 @@ More detail, including real-device tips, is in [docs/DEVICE-TESTING.md](docs/DEV
 
 Tested on one phone (Galaxy S25) against Linux and Windows hosts; expect rough edges. Walk mode is
 new: it works on the phone (also locked), but its summaries of real agent screens need more
-real-world use. Planned: a voice and persona per workspace, an agent preset editor.
+real-world use. Planned: a voice and persona per workspace.
 
 ## Project layout
 

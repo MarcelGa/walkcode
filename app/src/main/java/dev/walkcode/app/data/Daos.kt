@@ -59,6 +59,9 @@ interface AgentPresetDao {
     @Upsert
     suspend fun upsert(preset: AgentPreset): Long
 
+    @Delete
+    suspend fun delete(preset: AgentPreset)
+
     @Query("SELECT COUNT(*) FROM agent_presets")
     suspend fun count(): Int
 }

@@ -78,6 +78,9 @@ class WalkcodeRepository(private val db: WalkcodeDatabase) {
 
     suspend fun upsertAgentPreset(preset: AgentPreset): Long = db.agentPresets().upsert(preset)
 
+    /** Workspaces that used it fall back to a plain shell (the foreign key is SET_NULL). */
+    suspend fun deleteAgentPreset(preset: AgentPreset) = db.agentPresets().delete(preset)
+
     // --- Workspaces --------------------------------------------------------
 
     suspend fun addWorkspace(

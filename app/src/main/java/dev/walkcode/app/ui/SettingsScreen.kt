@@ -34,7 +34,7 @@ import java.time.LocalDate
 private val QuietChoices = listOf(5, 10, 15, 30, 60, 120)
 
 @Composable
-fun ColumnScope.SettingsScreen(repo: WalkcodeRepository, settings: AppSettings, onOpenVoice: () -> Unit) {
+fun ColumnScope.SettingsScreen(repo: WalkcodeRepository, settings: AppSettings, onOpenVoice: () -> Unit, onOpenAgents: () -> Unit) {
     val context = LocalContext.current
     val quietSec by settings.quietAfterSec.collectAsState()
     val quietOn by settings.quietAlerts.collectAsState()
@@ -82,6 +82,16 @@ fun ColumnScope.SettingsScreen(repo: WalkcodeRepository, settings: AppSettings, 
             else "Walk mode on ${RealtimeProtocol.modelLabel(model)} · ${UsageFormat.usd(monthUsd)} this month",
             subtitleLines = 2,
             onClick = onOpenVoice,
+            trailing = { Text("›", color = WC.Muted, fontSize = 20.sp) },
+        )
+
+        // Each agent is a command a workspace types to start it, so a second account gets its own.
+        SectionLabel("Agents")
+        ListRow(
+            title = "Agent commands",
+            subtitle = "What a workspace starts, e.g. claude or claude-work for another account",
+            subtitleLines = 2,
+            onClick = onOpenAgents,
             trailing = { Text("›", color = WC.Muted, fontSize = 20.sp) },
         )
 

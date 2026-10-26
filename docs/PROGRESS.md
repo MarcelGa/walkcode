@@ -177,8 +177,14 @@ instead); Windows/psmux monitoring through the service.
 ## What is left
 
 All four planned milestones are done. Remaining gaps / ideas: the Android 15 dataSync `onTimeout`
-pause path and Windows monitoring through the service are untested; agent presets cannot be edited in
-the UI yet (only the four built-ins).
+pause path and Windows monitoring through the service are untested.
+
+## Agent presets in the UI (2026-10-26)
+
+Settings -> Agents lists presets. `+` adds one with a name, a command and an optional resume command
+(e.g. `claude-work --session-id {id}` and `claude-work --resume {id}` for a second Claude account). Custom presets can be
+edited and deleted; the four built-ins are fixed. Deleting a preset makes its workspaces start a plain
+shell. `SessionService` types the line built by `AgentCommand.build()`, so no other code changes are needed.
 
 ## Config export/import (2026-10-20)
 
@@ -221,7 +227,7 @@ host's `administrators_authorized_keys`, which needs an elevated shell).
 ## Where to pick up
 
 1. Ask the user what they hit while testing on the phone (logs: `adb logcat -s WalkcodeTerm AndroidRuntime`).
-2. Candidate work: agent preset editor, import/export of hosts/workspaces, in-app log viewer,
+2. Candidate work: import/export of hosts/workspaces, in-app log viewer,
    configurable per-session quiet/alert behaviour, tailnet address for the VM.
 3. Before changing behaviour re-run the relevant `tools/spikes/*.ps1` (list in AGENTS.md).
 
