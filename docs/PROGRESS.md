@@ -265,7 +265,9 @@ and also repairs a glued value on read (confirmed on the phone: stored 171 chars
 can be verified. Talk runs only while its screen is open (no foreground service yet).
 Voice picker (2026-10-26): `ui/VoicePicker.kt` (`RealtimeVoicePicker`) is a dropdown of all ten Realtime
 preset voices with a play button on the field and on each entry; the sample says "Hey, this is voice agent
-<name>" via the speech endpoint (`voice/VoicePreview`, `gpt-4o-mini-tts`, raw 24 kHz PCM, cached in memory).
+<name>" via the speech endpoint (`voice/VoicePreview`, `gpt-4o-mini-tts`, raw 24 kHz PCM, cached in memory
+and, since 2026-10-26, as files in `files/voice-samples/` keyed by model, voice and text, so each sample is paid
+for once; verified on the emulator: one request, then none after an app restart).
 It takes an `assistantName` and a "use default" entry (`noneLabel`/`noneVoice`) so per-workspace voices can
 reuse it. Settings uses it for the default voice. **Verified:** `VoicePreviewTest`, and on the emulator the
 menu, the play button and the request (HTTP 429 "no credits remaining", shown under the field).

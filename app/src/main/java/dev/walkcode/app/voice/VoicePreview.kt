@@ -22,15 +22,17 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 /**
  * Speaks a short sample in a Realtime preset voice so the user can choose one by ear. Uses the
  * speech endpoint instead of a Realtime session: the same preset voices, one HTTP request, no
- * microphone, and a sample costs a fraction of a cent. Samples are kept in memory, so playing
- * the same voice again is free.
+ * microphone, and a sample costs a fraction of a cent. Samples are kept in memory and, with [dir],
+ * as files that survive leaving the screen and restarting the app, so a sample is paid for once.
  */
-class VoicePreview(private val scope: CoroutineScope) {
+class VoicePreview(private val scope: CoroutineScope, private val dir: File? = null) {
 
     sealed interface State {
         data object Idle : State
@@ -51,14 +53,17 @@ class VoicePreview(private val scope: CoroutineScope) {
         stop()
         job = scope.launch {
             val cacheKey = "$voice\n$text"
-            val pcm = cache[cacheKey] ?: run {
+            val file = dir?.let { File(it, fileName(voice, text)) }
+            val pcm = cache[cacheKey] ?: withContext(Dispatchers.IO) { file?.takeIf { it.isFile }?.let { runCatching { it.readBytes() }.getOrNull() } } ?: run {
                 _state.value = State.Loading(voice)
                 val result = withContext(Dispatchers.IO) { runCatching { fetch(apiKey, voice, text) } }
-                result.getOrElse {
+                val fetched = result.getOrElse {
                     Log.w(TAG, "preview $voice failed: ${it.javaClass.simpleName}")
                     _state.value = State.Failed(voice, it.message ?: "Could not load the sample")
                     return@launch
                 }
+                if (file != null) withContext(Dispatchers.IO) { save(file, fetched) }
+                fetched
             }
             cache[cacheKey] = pcm
             _state.value = State.Playing(voice)
@@ -71,6 +76,17 @@ class VoicePreview(private val scope: CoroutineScope) {
         job?.cancel()
         job = null
         _state.value = State.Idle
+    }
+
+    /** Through a temporary file, so a write cut short (app killed) never leaves a truncated sample to replay. */
+    private fun save(file: File, pcm: ByteArray) {
+        if (pcm.isEmpty()) return
+        runCatching {
+            file.parentFile?.mkdirs()
+            val tmp = File(file.path + ".tmp")
+            tmp.writeBytes(pcm)
+            if (!tmp.renameTo(file)) tmp.delete()
+        }.onFailure { Log.w(TAG, "preview cache write failed: ${it.javaClass.simpleName}") }
     }
 
     private fun fetch(apiKey: String, voice: String, text: String): ByteArray {
@@ -124,6 +140,15 @@ class VoicePreview(private val scope: CoroutineScope) {
     companion object {
         private const val TAG = "WalkcodeVoice"
         const val MODEL = "gpt-4o-mini-tts"
+
+        /**
+         * One file per model, voice and text: a workspace's assistant name changes the text, so it gets
+         * its own sample, and a new [MODEL] never replays audio made by the old one.
+         */
+        fun fileName(voice: String, text: String): String {
+            val digest = MessageDigest.getInstance("SHA-256").digest("$MODEL\n$voice\n$text".toByteArray())
+            return "$voice-" + digest.take(8).joinToString("") { "%02x".format(it) } + ".pcm"
+        }
 
         /** What the sample says; [name] is the assistant's name, or the voice's own when it has none. */
         fun phrase(name: String): String = "Hey, this is voice agent $name."

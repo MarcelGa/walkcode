@@ -26,8 +26,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import dev.walkcode.app.voice.RealtimeProtocol
 import dev.walkcode.app.voice.VoicePreview
+import java.io.File
 
 /**
  * Dropdown of the Realtime preset voices with a play button on the field and on every entry, so
@@ -48,7 +50,9 @@ fun RealtimeVoicePicker(
     noneVoice: String? = null,
 ) {
     val scope = rememberCoroutineScope()
-    val preview = remember { VoicePreview(scope) }
+    // Private files, not the cache dir: Android may clear that, and each sample was paid for.
+    val dir = File(LocalContext.current.filesDir, "voice-samples")
+    val preview = remember { VoicePreview(scope, dir) }
     DisposableEffect(Unit) { onDispose { preview.stop() } }
     val state by preview.state.collectAsState()
     var open by remember { mutableStateOf(false) }

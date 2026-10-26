@@ -4,6 +4,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VoicePreviewTest {
@@ -14,6 +16,14 @@ class VoicePreviewTest {
         assertEquals("cedar", obj["voice"]!!.jsonPrimitive.content)
         assertEquals("Hi.", obj["input"]!!.jsonPrimitive.content)
         assertEquals("pcm", obj["response_format"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun cache_file_differs_by_voice_and_text_and_is_stable() {
+        val marin = VoicePreview.fileName("marin", VoicePreview.phrase("Marin"))
+        assertEquals(marin, VoicePreview.fileName("marin", VoicePreview.phrase("Marin")))
+        assertTrue(marin.startsWith("marin-") && marin.endsWith(".pcm"))
+        assertNotEquals(marin, VoicePreview.fileName("cedar", VoicePreview.phrase("Marin")))
+        assertNotEquals(marin, VoicePreview.fileName("marin", VoicePreview.phrase("Karl")))
     }
 
     @Test fun phrase_names_the_assistant() {

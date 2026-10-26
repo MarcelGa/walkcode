@@ -61,6 +61,11 @@ Roughly in order of expected saving per effort.
    first audio, weaker recognition of technical terms, clumsier interrupting, a flatter voice with
    platform TTS. Would sit next to Realtime as a choice, sharing the tools and the walk screen.
 
+## Voice samples in Settings
+
+The ▶ sample of a voice is fetched once (`gpt-4o-mini-tts`, a fraction of a cent) and kept as a file on
+the phone, so playing it again, also after a restart, is free. It is not counted in the usage readout.
+
 ## Known gap in the usage readout
 
 A reply still running when walk mode is stopped is billed but not counted: its `response.done` arrives
