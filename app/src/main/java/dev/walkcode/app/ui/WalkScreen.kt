@@ -41,6 +41,7 @@ import androidx.core.content.ContextCompat
 import dev.walkcode.app.assistant.WalkAssistant
 import dev.walkcode.app.data.AppSettings
 import dev.walkcode.app.voice.RealtimeProtocol
+import dev.walkcode.app.voice.UsageFormat
 import dev.walkcode.app.voice.VoiceSession
 
 /**
@@ -103,6 +104,7 @@ fun ColumnScope.WalkScreen(walk: WalkAssistant, settings: AppSettings, onBack: (
     val problem by session.problem.collectAsState()
     val output by session.output.collectAsState()
     val turns by session.turns.collectAsState()
+    val spend by session.spend.collectAsState()
     var typed by remember { mutableStateOf("") }
     val toggle = rememberWalkToggle(walk, settings)
     val list = rememberLazyListState()
@@ -124,6 +126,13 @@ fun ColumnScope.WalkScreen(walk: WalkAssistant, settings: AppSettings, onBack: (
             },
             color = WC.Muted, fontSize = 13.sp,
         )
+        // Stays after Stop, so the cost of the conversation that just ended can still be read.
+        if (spend.tokens > 0) {
+            Text(
+                "This conversation: ${UsageFormat.tokens(spend.tokens)} tokens · about ${UsageFormat.usd(spend.usd)}",
+                color = WC.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         problem?.let { p ->
             val hint = if (p.startsWith("Incorrect API key")) "\nCheck the key in Settings → Voice assistant." else ""
             Text(p + hint, color = WC.Danger, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))

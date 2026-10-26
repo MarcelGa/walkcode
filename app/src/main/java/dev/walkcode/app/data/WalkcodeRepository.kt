@@ -1,6 +1,7 @@
 package dev.walkcode.app.data
 
 import androidx.room.withTransaction
+import dev.walkcode.app.voice.Usage
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -14,6 +15,26 @@ class WalkcodeRepository(private val db: WalkcodeDatabase) {
     val agentPresets: Flow<List<AgentPreset>> = db.agentPresets().observeAll()
     val workspaces: Flow<List<Workspace>> = db.workspaces().observeAll()
     val allSessions: Flow<List<Session>> = db.sessions().observeAll()
+    /** One row per day and model; few enough to sum in memory. */
+    val voiceUsage: Flow<List<VoiceUsage>> = db.voiceUsage().observeAll()
+
+    /** Adds one response's (or transcription's) tokens and estimated price to [day]'s row for [model]. */
+    suspend fun addVoiceUsage(day: String, model: String, usage: Usage, usd: Double) = db.withTransaction {
+        val row = db.voiceUsage().get(day, model) ?: VoiceUsage(day, model)
+        db.voiceUsage().upsert(
+            row.copy(
+                calls = row.calls + 1,
+                textIn = row.textIn + usage.textIn,
+                audioIn = row.audioIn + usage.audioIn,
+                cachedIn = row.cachedIn + usage.cachedIn,
+                textOut = row.textOut + usage.textOut,
+                audioOut = row.audioOut + usage.audioOut,
+                costUsd = row.costUsd + usd,
+            ),
+        )
+    }
+
+    suspend fun clearVoiceUsage() = db.voiceUsage().clear()
 
     fun sessionsFor(workspaceId: Long): Flow<List<Session>> = db.sessions().observeForWorkspace(workspaceId)
 

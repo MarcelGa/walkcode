@@ -12,7 +12,7 @@ hear who is waiting for you, and answer by voice. No laptop, no server of your o
   &nbsp;
   <img src="docs/img/terminal.png" width="260" alt="Terminal attached to an agent session">
   &nbsp;
-  <img src="docs/img/settings-voice.png" width="260" alt="Settings: dictation and the voice assistant">
+  <img src="docs/img/settings-voice.png" width="260" alt="Settings, Voice: the Realtime model, voice, key and what walk mode has cost">
 </p>
 
 > Personal project, sideloaded, no Play Store, no Google Play Services, no backend. Walk mode's
@@ -41,6 +41,10 @@ that is wasteful, and typing on a phone keyboard is miserable. Walkcode closes t
   back, and sends only that text after you confirm.
 - **Talk or type.** Speech in and out (interrupt it any time), or type when it is loud.
   Pick one of OpenAI's preset voices in Settings, with a play button to compare them.
+- **See what it costs.** Pick the Realtime model (the mini one is about a third of the price) and
+  watch the spend: the walk screen shows this conversation's tokens and estimated dollars, and
+  Settings shows today, this month and all time, from the usage OpenAI reports after each reply.
+  Background noise is filtered, so wind and traffic do not start paid replies.
 - **Privacy:** walk mode sends your speech and the screen text it reads to OpenAI, with your own
   API key (stored only on the phone, never in config backups). Everything else stays between
   the phone and your hosts.
@@ -118,8 +122,8 @@ On Linux/macOS use `./gradlew`.
 2. Install the small tmux config once per host (`tools/host-config/install-tmux-conf.sh` or
    `.ps1`): bell counter, `focus-events`, and on Windows a shell that honours Ctrl+C.
 3. Add the host (LAN and/or Tailscale address), create a project and a workspace, tap it.
-4. For walk mode, paste an OpenAI API key in **Settings → Voice assistant** (the account needs
-   API credit), then tap **Walk: off** on the Projects screen and ask what is going on.
+4. For walk mode, paste an OpenAI API key in **Settings → Dictation and walk mode** (the account
+   needs API credit), then tap **Walk: off** on the Projects screen and ask what is going on.
 
 More detail, including real-device tips, is in [docs/DEVICE-TESTING.md](docs/DEVICE-TESTING.md).
 

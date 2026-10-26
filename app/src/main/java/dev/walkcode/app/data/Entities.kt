@@ -114,3 +114,35 @@ object BuiltInAgents {
         AgentPreset(id = 4, name = "Hermes", command = "hermes", resumeCommand = null, builtIn = true, sortOrder = 3),
     )
 }
+
+/**
+ * Walk-mode spend for one day (local date, `2026-10-26`) and one model, summed from what the server
+ * reports per response. [costUsd] is fixed at the list price of the time, so a later price change
+ * does not rewrite history. Not part of the config backup.
+ */
+@Entity(tableName = "voice_usage", primaryKeys = ["day", "model"])
+data class VoiceUsage(
+    val day: String,
+    val model: String,
+    /** Responses (or transcriptions) counted. */
+    val calls: Long = 0,
+    val textIn: Long = 0,
+    val audioIn: Long = 0,
+    /** The cached part of the input (text and audio), billed at a fraction of the rate. */
+    val cachedIn: Long = 0,
+    val textOut: Long = 0,
+    val audioOut: Long = 0,
+    val costUsd: Double = 0.0,
+) {
+    val tokens: Long get() = textIn + audioIn + textOut + audioOut
+}
+
+/** A sum of [VoiceUsage] rows: today's, this month's or all of them. */
+data class UsageTotal(val tokens: Long = 0, val cachedIn: Long = 0, val usd: Double = 0.0) {
+    companion object {
+        /** Rows on or after [fromDay] (ISO dates sort as text); null sums all of them. */
+        fun of(rows: List<VoiceUsage>, fromDay: String? = null): UsageTotal =
+            rows.filter { fromDay == null || it.day >= fromDay }
+                .fold(UsageTotal()) { t, r -> UsageTotal(t.tokens + r.tokens, t.cachedIn + r.cachedIn, t.usd + r.costUsd) }
+    }
+}

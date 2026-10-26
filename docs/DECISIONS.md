@@ -120,6 +120,11 @@ revisit. Each line is a decision, not an open question.
 - Workspace tools (`list_workspaces`, `workspace_overview`, `read_session`, `propose_message`, `send_proposed`) run over the
   app's existing SSH connections, not through a separate service.
 - The session runs in a microphone foreground service while walk mode is on.
+- (2026-10-26) Voice settings (dictation, Realtime model, voice, key) live on their own screen,
+  **Settings > Dictation and walk mode**. The **Realtime model is user-selectable** (`RealtimeProtocol.MODELS`,
+  default `gpt-realtime-2`). **Automated tests that call OpenAI use the cheapest model**
+  (`CHEAPEST_MODEL`, `gpt-realtime-2.1-mini`) and stop before the first request if walk mode starts on
+  any other model, so test runs do not drain the account.
 - Nothing is typed into a session that the user did not hear: `propose_message` stores the text (it sends
   nothing) and the model reads it back; `send_proposed` sends only that stored text, after the user's yes.
   (A first design with one `send_to_session` + `confirmed` flag made the model ask twice; replaced.)

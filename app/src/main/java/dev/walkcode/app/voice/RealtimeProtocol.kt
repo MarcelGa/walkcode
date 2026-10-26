@@ -18,8 +18,44 @@ import java.util.Base64
  * See docs/DECISIONS.md ("Voice orchestrator PoC").
  */
 object RealtimeProtocol {
-    const val MODEL = "gpt-realtime-2"
+    /** A Realtime model offered in Settings, with its list prices (for the usage estimate). */
+    data class Model(val id: String, val label: String, val prices: Prices) {
+        /** The audio rate per 1M tokens, in / out: what most of a spoken conversation costs. */
+        val priceLabel: String get() = "${UsageFormat.rate(prices.audioIn)} / ${UsageFormat.rate(prices.audioOut)}"
+    }
+
+    // OpenAI's pricing page, 2026-10-26.
+    private val FULL_PRICES = Prices(textIn = 4.0, textOut = 24.0, audioIn = 32.0, audioOut = 64.0, cachedTextIn = 0.40, cachedAudioIn = 0.40)
+    private val MINI_PRICES = Prices(textIn = 0.60, textOut = 2.40, audioIn = 10.0, audioOut = 20.0, cachedTextIn = 0.06, cachedAudioIn = 0.30)
+
+    /**
+     * The mini model costs about a third on audio (far less on text) but is weaker at calling
+     * functions. Automated tests use [CHEAPEST_MODEL] so they cost little.
+     */
+    val MODELS = listOf(
+        Model("gpt-realtime-2", "GPT Realtime 2", FULL_PRICES),
+        Model("gpt-realtime-2.1", "GPT Realtime 2.1", FULL_PRICES),
+        Model("gpt-realtime-2.1-mini", "GPT Realtime 2.1 mini", MINI_PRICES),
+    )
+    const val DEFAULT_MODEL = "gpt-realtime-2"
+    const val CHEAPEST_MODEL = "gpt-realtime-2.1-mini"
+
+    /** Turns what the user said into the transcript on screen; billed apart from the conversation. */
+    const val TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe"
+    val TRANSCRIBE_PRICES = Prices(textIn = 1.25, textOut = 5.0, audioIn = 1.25, audioOut = 0.0, cachedTextIn = 1.25, cachedAudioIn = 1.25)
+
+    /** Prices for [id]; a model this build does not list is estimated at the full rate, never too low. */
+    fun pricesFor(id: String): Prices = when (id) {
+        TRANSCRIBE_MODEL -> TRANSCRIBE_PRICES
+        else -> MODELS.firstOrNull { it.id == id }?.prices ?: FULL_PRICES
+    }
     const val SAMPLE_RATE = 24000
+    const val VAD_THRESHOLD = 0.65
+    /** A little over the 500 ms default, so a pause mid-sentence does not split it into two paid replies. */
+    const val VAD_SILENCE_MS = 700
+
+    /** The label for [id]; an id this build does not list is shown as is. */
+    fun modelLabel(id: String): String = MODELS.firstOrNull { it.id == id }?.label ?: id
 
     /**
      * Every Realtime preset voice, the two newest (recommended by OpenAI) first. No cloning, so a
@@ -34,14 +70,19 @@ object RealtimeProtocol {
     private val FATAL_CODES = setOf("invalid_api_key", "insufficient_quota", "credit_balance_exhausted", "model_not_found")
 
     /**
-     * Configures the session once the socket is open: voice, instructions, PCM in and out, server VAD,
-     * and the functions the model may call ([tools], built by [function]).
+     * Configures the session once the socket is open: model, voice, instructions, PCM in and out,
+     * server VAD, and the functions the model may call ([tools], built by [function]).
      */
-    fun sessionUpdate(voice: String, instructions: String, tools: List<JsonObject> = emptyList()): String = buildJsonObject {
+    fun sessionUpdate(
+        voice: String,
+        instructions: String,
+        tools: List<JsonObject> = emptyList(),
+        model: String = DEFAULT_MODEL,
+    ): String = buildJsonObject {
         put("type", "session.update")
         putJsonObject("session") {
             put("type", "realtime")
-            put("model", MODEL)
+            put("model", model)
             putJsonArray("output_modalities") { add(JsonPrimitive("audio")) }
             put("instructions", instructions)
             if (tools.isNotEmpty()) {
@@ -54,9 +95,17 @@ object RealtimeProtocol {
                         put("type", "audio/pcm")
                         put("rate", SAMPLE_RATE)
                     }
-                    putJsonObject("turn_detection") { put("type", "server_vad") }
+                    // Wind, traffic and voices nearby start false turns outdoors, and each one bills
+                    // its audio plus a whole reply. Filtering before the VAD and a stricter
+                    // threshold (default 0.5) keep those out; silence is free either way.
+                    putJsonObject("noise_reduction") { put("type", "near_field") }
+                    putJsonObject("turn_detection") {
+                        put("type", "server_vad")
+                        put("threshold", VAD_THRESHOLD)
+                        put("silence_duration_ms", VAD_SILENCE_MS)
+                    }
                     // Transcript of what the user said, so the screen can show both sides.
-                    putJsonObject("transcription") { put("model", "gpt-4o-mini-transcribe") }
+                    putJsonObject("transcription") { put("model", TRANSCRIBE_MODEL) }
                 }
                 putJsonObject("output") {
                     putJsonObject("format") {
@@ -133,10 +182,12 @@ object RealtimeProtocol {
         data object SessionReady : Event
         data class AudioDelta(val pcm: ByteArray) : Event
         data class AssistantText(val delta: String) : Event
-        data class UserText(val text: String) : Event
+        /** [usage] is what transcribing it cost ([TRANSCRIBE_MODEL]), when the server says. */
+        data class UserText(val text: String, val usage: Usage? = null) : Event
         /** The user started speaking: any reply still playing should stop (barge-in). */
         data object SpeechStarted : Event
-        data object ResponseDone : Event
+        /** [usage] is what this response cost: the whole conversation as input, plus its output. */
+        data class ResponseDone(val usage: Usage? = null) : Event
         /** The model wants [name] run with [arguments] (a JSON object as text); answer with [functionOutput]. */
         data class FunctionCall(val callId: String, val name: String, val arguments: String) : Event
         data class Error(val message: String, val code: String? = null) : Event {
@@ -156,7 +207,8 @@ object RealtimeProtocol {
                 Event.AudioDelta(Base64.getDecoder().decode(obj.str("delta").orEmpty()))
             "response.output_audio_transcript.delta", "response.audio_transcript.delta" ->
                 Event.AssistantText(obj.str("delta").orEmpty())
-            "conversation.item.input_audio_transcription.completed" -> Event.UserText(obj.str("transcript").orEmpty())
+            "conversation.item.input_audio_transcription.completed" ->
+                Event.UserText(obj.str("transcript").orEmpty(), obj.obj("usage")?.let(::transcriptionUsage))
             "input_audio_buffer.speech_started" -> Event.SpeechStarted
             // The finished output item carries the whole call (name, id and arguments) in one place.
             "response.output_item.done" -> {
@@ -176,7 +228,7 @@ object RealtimeProtocol {
                     val error = response.obj("status_details")?.obj("error")
                     Event.Error(error?.str("message") ?: "The response failed", error?.str("code"))
                 } else {
-                    Event.ResponseDone
+                    Event.ResponseDone(response?.obj("usage")?.let(::responseUsage))
                 }
             }
             "error" -> {
@@ -184,6 +236,40 @@ object RealtimeProtocol {
                 Event.Error(error?.str("message") ?: text, error?.str("code"))
             }
             else -> Event.Ignored
+        }
+    }
+
+    private fun JsonObject.long(name: String): Long = (this[name] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0
+    private fun JsonObject.sub(name: String): JsonObject? = this[name] as? JsonObject
+
+    /** `response.usage`: input split by text and audio, each with its cached part; output by text and audio. */
+    private fun responseUsage(u: JsonObject): Usage {
+        val input = u.sub("input_token_details")
+        val cached = input?.sub("cached_tokens_details")
+        val output = u.sub("output_token_details")
+        return Usage(
+            textIn = input?.long("text_tokens") ?: 0,
+            audioIn = input?.long("audio_tokens") ?: 0,
+            cachedTextIn = cached?.long("text_tokens") ?: 0,
+            cachedAudioIn = cached?.long("audio_tokens") ?: 0,
+            textOut = output?.long("text_tokens") ?: 0,
+            audioOut = output?.long("audio_tokens") ?: 0,
+        )
+    }
+
+    /**
+     * Transcription usage comes as tokens or, for duration-billed models, as seconds; seconds are
+     * counted at the Realtime rate for user audio (10 tokens a second) so both add up the same way.
+     */
+    private fun transcriptionUsage(u: JsonObject): Usage = when ((u["type"] as? JsonPrimitive)?.content) {
+        "duration" -> Usage(audioIn = ((u["seconds"] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: 0.0).times(10).toLong())
+        else -> {
+            val input = u.sub("input_token_details")
+            Usage(
+                textIn = input?.long("text_tokens") ?: 0,
+                audioIn = input?.long("audio_tokens") ?: u.long("input_tokens"),
+                textOut = u.long("output_tokens"),
+            )
         }
     }
 }

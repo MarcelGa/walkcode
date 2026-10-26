@@ -71,6 +71,10 @@ Shot 'terminal'
 1..3 | ForEach-Object { & $adb shell input keyevent 4; Start-Sleep -Milliseconds 700 }
 & $adb logcat -c
 Tap 'Walk: off'
+# Only on the cheapest model (voice-talk.ps1 picks it in Settings > Voice); stop before the first request otherwise.
+Start-Sleep 2
+$model = [regex]::Match(((& $adb logcat -d -s WalkcodeVoice:V) -join "`n"), 'start: .* model (\S+),').Groups[1].Value
+if ($model -ne 'gpt-realtime-2.1-mini') { Tap 'Walk: on'; throw "walk mode started on '$model'; run tools\spikes\voice-talk.ps1 first" }
 Tap 'Walk mode: listening' -Prefix
 Tap 'Type instead of speaking'
 & $adb shell input text ('What did the agent in Demo just finish?' -replace ' ', '%s')
@@ -84,14 +88,19 @@ Shot 'walk-mode'
 Tap 'Stop walk mode'
 Tap 'Walk mode'   # the top bar's back arrow and title
 
-# Settings: dictation and the voice assistant section. The real key's masked tail must not end up
+# Settings > Voice: dictation and the voice assistant. The real key's masked tail must not end up
 # in a public image, so a placeholder replaces it first (voice-talk.ps1 saves the real one again).
 Tap 'Settings'
+Tap 'Dictation and walk mode'
 & $adb shell input swipe 540 1900 540 900 400
 Start-Sleep 1
 Tap 'Replace key'
 & $adb shell input text 'sk-proj-placeholder-not-a-real-key-a1b2'
 & $adb shell input keyevent 66
+Start-Sleep 1
+Hide-Keyboard
+# Slow (no fling), so the models, voice, key and the usage totals end up in one screen.
+& $adb shell input swipe 540 1900 540 1400 1000
 Start-Sleep 1
 Shot 'settings-voice'
 Write-Output "screenshots: $out"

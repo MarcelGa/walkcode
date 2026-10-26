@@ -26,7 +26,25 @@ class RealtimeProtocolTest {
         assertEquals("audio/pcm", output["format"]!!.jsonObject["type"]!!.jsonPrimitive.content)
         assertEquals("24000", output["format"]!!.jsonObject["rate"]!!.jsonPrimitive.content)
         val input = audio["input"]!!.jsonObject
-        assertEquals("server_vad", input["turn_detection"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        val vad = input["turn_detection"]!!.jsonObject
+        assertEquals("server_vad", vad["type"]!!.jsonPrimitive.content)
+        assertEquals(RealtimeProtocol.VAD_THRESHOLD.toString(), vad["threshold"]!!.jsonPrimitive.content)
+        assertEquals("near_field", input["noise_reduction"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        assertEquals(RealtimeProtocol.DEFAULT_MODEL, session["model"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun session_update_carries_the_chosen_model() {
+        val session = Json.parseToJsonElement(
+            RealtimeProtocol.sessionUpdate("marin", "Hi", model = RealtimeProtocol.CHEAPEST_MODEL),
+        ).jsonObject["session"]!!.jsonObject
+        assertEquals("gpt-realtime-2.1-mini", session["model"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun every_model_has_a_label_and_the_cheapest_is_listed() {
+        assertTrue(RealtimeProtocol.MODELS.any { it.id == RealtimeProtocol.CHEAPEST_MODEL })
+        assertTrue(RealtimeProtocol.MODELS.any { it.id == RealtimeProtocol.DEFAULT_MODEL })
+        assertEquals("GPT Realtime 2.1 mini", RealtimeProtocol.modelLabel(RealtimeProtocol.CHEAPEST_MODEL))
+        assertEquals("some-future-model", RealtimeProtocol.modelLabel("some-future-model"))
     }
 
     @Test fun append_audio_encodes_pcm_as_base64() {
@@ -55,7 +73,52 @@ class RealtimeProtocolTest {
             RealtimeProtocol.parse("""{"type":"conversation.item.input_audio_transcription.completed","transcript":"open the repo"}"""),
         )
         assertEquals(RealtimeProtocol.Event.SpeechStarted, RealtimeProtocol.parse("""{"type":"input_audio_buffer.speech_started"}"""))
-        assertEquals(RealtimeProtocol.Event.ResponseDone, RealtimeProtocol.parse("""{"type":"response.done"}"""))
+        assertEquals(RealtimeProtocol.Event.ResponseDone(), RealtimeProtocol.parse("""{"type":"response.done"}"""))
+    }
+
+    @Test fun response_usage_is_split_by_modality_and_cache() {
+        // Shape of the cost guide's example (developers.openai.com/api/docs/guides/realtime-costs).
+        val event = RealtimeProtocol.parse(
+            """{"type":"response.done","response":{"status":"completed","usage":{"total_tokens":253,"input_tokens":132,""" +
+                """"output_tokens":121,"input_token_details":{"text_tokens":119,"audio_tokens":13,"image_tokens":0,""" +
+                """"cached_tokens":64,"cached_tokens_details":{"text_tokens":64,"audio_tokens":0}},""" +
+                """"output_token_details":{"text_tokens":30,"audio_tokens":91}}}}""",
+        )
+        val usage = Usage(textIn = 119, audioIn = 13, cachedTextIn = 64, cachedAudioIn = 0, textOut = 30, audioOut = 91)
+        assertEquals(RealtimeProtocol.Event.ResponseDone(usage), event)
+        assertEquals(253, usage.total)
+    }
+
+    @Test fun transcription_usage_in_tokens_or_seconds() {
+        val tokens = RealtimeProtocol.parse(
+            """{"type":"conversation.item.input_audio_transcription.completed","transcript":"hi","usage":{"type":"tokens",""" +
+                """"total_tokens":40,"input_tokens":30,"input_token_details":{"text_tokens":0,"audio_tokens":30},"output_tokens":10}}""",
+        )
+        assertEquals(RealtimeProtocol.Event.UserText("hi", Usage(audioIn = 30, textOut = 10)), tokens)
+        val seconds = RealtimeProtocol.parse(
+            """{"type":"conversation.item.input_audio_transcription.completed","transcript":"hi","usage":{"type":"duration","seconds":3}}""",
+        )
+        assertEquals(RealtimeProtocol.Event.UserText("hi", Usage(audioIn = 30)), seconds)
+    }
+
+    @Test fun cost_uses_the_cached_rate_for_the_cached_part() {
+        val prices = RealtimeProtocol.pricesFor("gpt-realtime-2")
+        // 1M fresh audio in, 1M cached audio in, 1M audio out: $32 + $0.40 + $64.
+        val u = Usage(audioIn = 2_000_000, cachedAudioIn = 1_000_000, audioOut = 1_000_000)
+        assertEquals(96.40, prices.cost(u), 1e-9)
+        // The mini model is cheaper on the same usage, an unknown model never cheaper than the full one.
+        assertTrue(RealtimeProtocol.pricesFor(RealtimeProtocol.CHEAPEST_MODEL).cost(u) < prices.cost(u))
+        assertEquals(prices.cost(u), RealtimeProtocol.pricesFor("gpt-realtime-9").cost(u), 1e-9)
+    }
+
+    @Test fun usage_formats() {
+        assertEquals("$0.004", UsageFormat.usd(0.0042))
+        assertEquals("$12.40", UsageFormat.usd(12.4))
+        assertEquals("850", UsageFormat.tokens(850))
+        assertEquals("12.3k", UsageFormat.tokens(12_340))
+        assertEquals("1.2M", UsageFormat.tokens(1_234_567))
+        assertEquals("$32 / $64", RealtimeProtocol.MODELS.first().priceLabel)
+        assertEquals("$0.40", UsageFormat.rate(0.4))
     }
 
     @Test fun parses_error_message_and_ignores_unknown_events() {
@@ -97,7 +160,7 @@ class RealtimeProtocolTest {
         assertEquals(RealtimeProtocol.Event.Error("You exceeded your current quota", "insufficient_quota"), event)
         assertTrue((event as RealtimeProtocol.Event.Error).fatal)
         assertEquals(
-            RealtimeProtocol.Event.ResponseDone,
+            RealtimeProtocol.Event.ResponseDone(),
             RealtimeProtocol.parse("""{"type":"response.done","response":{"status":"completed"}}"""),
         )
     }

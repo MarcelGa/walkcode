@@ -11,6 +11,9 @@ $sdk = "$env:LOCALAPPDATA\Android\Sdk"
 $adb = "$sdk\platform-tools\adb.exe"
 $serial = 'emulator-5554'   # the phone may be attached too
 $out = "$root\build\voice"
+# RealtimeProtocol.CHEAPEST_MODEL and its label in Settings > Voice.
+$cheapModel = 'gpt-realtime-2.1-mini'
+$cheapLabel = 'GPT Realtime 2.1 mini'
 New-Item -ItemType Directory -Force $out | Out-Null
 
 function A { & $adb -s $serial @args }
@@ -43,10 +46,14 @@ function Tap([string] $t) {
 }
 # Small upward swipes until the text is on screen (Settings is longer than one screen).
 function Scroll-To([string] $t) {
+    $last = -2
     for ($i = 0; $i -lt 12; $i++) {
         $n = Node { param($x) $x -eq $t }
         $y = if ($n) { [int]([regex]::Matches($n.bounds, '\d+')[1].Value) } else { -1 }
         if ($y -gt 250 -and $y -lt 2100) { return }
+        # Low on screen but the page cannot scroll further: it is as visible as it gets.
+        if ($y -gt 0 -and $y -eq $last) { return }
+        $last = $y
         A shell input swipe 540 1700 540 1200 300
         Start-Sleep -Milliseconds 600
     }
@@ -55,6 +62,16 @@ function Scroll-To([string] $t) {
 # On the device, then pulled: PowerShell redirection would mangle the PNG bytes.
 function Shot([string] $name) { A shell screencap -p /sdcard/wc-shot.png; A pull /sdcard/wc-shot.png "$out\$name.png" | Out-Null }
 function Type-Text([string] $s) { A shell input text ($s -replace ' ', '%s') }
+# First capture of [pattern] in the voice log, or $null after [seconds].
+function Wait-Log([string] $pattern, [int] $seconds) {
+    $deadline = (Get-Date).AddSeconds($seconds)
+    while ((Get-Date) -lt $deadline) {
+        $m = [regex]::Match(((A logcat -d -s WalkcodeVoice:V) -join "`n"), $pattern)
+        if ($m.Success) { return $m.Groups[1].Value }
+        Start-Sleep 1
+    }
+    $null
+}
 function Fail([string] $why) {
     Shot fail
     "--- screen:"; Texts
@@ -77,6 +94,10 @@ Start-Sleep 4
 
 # Key through the real Settings UI, so the paste cleaning and storage are exercised too.
 Tap 'Settings'
+Tap 'Dictation and walk mode'
+# The cheapest model, so test runs cost little; checked again in the log when walk mode starts.
+Scroll-To $cheapLabel
+Tap $cheapLabel
 Scroll-To 'Save key'
 $field = Wait-Node { param($x) $x -eq 'Paste key' -or $x -eq 'Replace key' } 5
 if (-not $field) { Fail 'API key field not found' }
@@ -89,8 +110,16 @@ $saved = "Saved: " + $k.Substring(0, $(if ($k.StartsWith('sk-proj-')) { 8 } else
 if (-not (Wait-Node { param($x) $x.StartsWith($saved) } 5)) { Fail 'key was not saved' }
 
 # Walk mode is switched on in the Projects top bar; the strip under it opens the conversation.
+# Settings > Voice has no tab bar: back out to it first.
+for ($i = 0; $i -lt 4 -and -not (Node { param($x) $x -eq 'Projects' }); $i++) { A shell input keyevent 4; Start-Sleep 1 }
 Tap 'Projects'
 Tap 'Walk: off'
+# Never let a test talk to a pricier model: stop before the first request if the pick did not stick.
+$started = Wait-Log 'start: .* model (\S+),' 10
+if ($started -ne $cheapModel) {
+    Tap 'Walk: on'
+    Fail "walk mode started on '$started', not $cheapModel"
+}
 $strip = Wait-Node { param($x) $x.StartsWith('Walk mode: listening') } 20
 if (-not $strip) { Fail 'walk mode did not go live' }
 Tap-Node $strip
@@ -113,12 +142,28 @@ $reply = @((Dump).SelectNodes('//node') | Where-Object { $_.text -and $_.text.St
 $log = (A logcat -d -s WalkcodeVoice:V) -join "`n"
 $audio = ([regex]::Matches($log, 'event response\.output_audio\.delta')).Count
 $tools = ([regex]::Matches($log, 'tool (\w+)') | ForEach-Object { $_.Groups[1].Value }) -join ', '
+$usage = @([regex]::Matches($log, 'usage (\S+) tokens=(\d+) .* usd=(\S+)') | ForEach-Object { "$($_.Groups[1].Value) $($_.Groups[2].Value) tokens $($_.Groups[3].Value)" })
+$spent = Node { param($x) $x.StartsWith('This conversation: ') }
 Shot talk
 Tap 'Stop walk mode'
 
 "reply: $($reply.text)"
 "functions run: $tools"
 "audio deltas: $audio"
+"usage per response: $($usage -join '; ')"
+"walk screen: $($spent.text)"
 if (-not $tools) { Fail 'the reply came without any workspace function' }
 if ($audio -lt 1) { Fail 'transcript arrived but no audio deltas' }
+if ($usage.Count -lt 1) { Fail 'no usage reported by response.done' }
+if (-not $spent) { Fail 'walk screen does not show the conversation cost' }
+
+# The totals in Settings > Voice include this run.
+for ($i = 0; $i -lt 4 -and -not (Node { param($x) $x -eq 'Settings' }); $i++) { A shell input keyevent 4; Start-Sleep 1 }
+Tap 'Settings'
+Tap 'Dictation and walk mode'
+Scroll-To 'Today'
+$today = Node { param($x) $x -eq 'Today' }
+if (-not (Wait-Node { param($x) $x -match '^\d+(\.\d)?[kM]? tokens' -and $x -notmatch '^0 tokens' } 5)) { Fail 'usage totals not shown in Settings' }
+Shot usage
+"settings usage: $((Texts | Where-Object { $_ -match 'tokens|^\$' }) -join ' | ')"
 "PASS (screenshot: $out\talk.png)"

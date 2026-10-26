@@ -26,14 +26,14 @@ class RealtimeClient(private val listener: Listener) {
         .build()
     private var socket: WebSocket? = null
 
-    fun connect(apiKey: String, voice: String, instructions: String, tools: List<JsonObject> = emptyList()) {
+    fun connect(apiKey: String, model: String, voice: String, instructions: String, tools: List<JsonObject> = emptyList()) {
         val request = Request.Builder()
-            .url("wss://api.openai.com/v1/realtime?model=${RealtimeProtocol.MODEL}")
+            .url("wss://api.openai.com/v1/realtime?model=$model")
             .header("Authorization", "Bearer $apiKey")
             .build()
         socket = http.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                webSocket.send(RealtimeProtocol.sessionUpdate(voice, instructions, tools))
+                webSocket.send(RealtimeProtocol.sessionUpdate(voice, instructions, tools, model))
                 listener.onOpen()
             }
 

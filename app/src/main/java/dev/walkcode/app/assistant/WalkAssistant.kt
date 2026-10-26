@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 /**
  * Walk mode: one voice conversation for the whole app, with [WorkspaceTools] over all workspaces.
@@ -28,7 +29,12 @@ class WalkAssistant private constructor(context: Context) {
     private val settings = AppSettings.get(app)
     private val repo = WalkcodeRepository.get(app)
 
-    val session = VoiceSession(scope, AudioRoute(app), tools = WorkspaceTools(repo, SessionService(repo), Monitor.get(app)))
+    val session = VoiceSession(
+        scope, AudioRoute(app),
+        tools = WorkspaceTools(repo, SessionService(repo), Monitor.get(app)),
+        // Counted on the local day it happened; Room does its own threading.
+        onUsage = { model, usage, usd -> scope.launch { repo.addVoiceUsage(LocalDate.now().toString(), model, usage, usd) } },
+    )
 
     /** On while connecting or live; the home toggle shows this. */
     val on: StateFlow<Boolean> = session.state
@@ -43,7 +49,7 @@ class WalkAssistant private constructor(context: Context) {
     /** False without a key. The caller must hold RECORD_AUDIO and be in the foreground (microphone service rules). */
     fun start(): Boolean {
         val key = settings.openAiKey.value ?: return false
-        session.start(key, settings.realtimeVoice.value)
+        session.start(key, settings.realtimeModel.value, settings.realtimeVoice.value)
         return true
     }
 

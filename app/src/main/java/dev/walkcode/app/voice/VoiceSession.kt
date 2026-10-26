@@ -29,9 +29,14 @@ class VoiceSession(
     private val route: AudioRoute? = null,
     private val audio: VoiceAudio = VoiceAudio(),
     private val tools: ToolHost? = null,
+    /** Every response and transcription the server reports, with its estimated price, for the usage totals. */
+    private val onUsage: (model: String, usage: Usage, usd: Double) -> Unit = { _, _, _ -> },
 ) : RealtimeClient.Listener {
 
     enum class State { Idle, Connecting, Live, Error }
+
+    /** Tokens and estimated dollars of the current (or last) conversation. */
+    data class Spend(val tokens: Long = 0, val usd: Double = 0.0)
 
     /** [tool] marks a note that a function ran, shown apart from what was said. */
     data class Turn(val fromUser: Boolean, val text: String, val tool: Boolean = false)
@@ -50,21 +55,27 @@ class VoiceSession(
     private val _turns = MutableStateFlow<List<Turn>>(emptyList())
     val turns: StateFlow<List<Turn>> = _turns
 
+    private val _spend = MutableStateFlow(Spend())
+    val spend: StateFlow<Spend> = _spend
+
     private var client: RealtimeClient? = null
+    private var model = RealtimeProtocol.DEFAULT_MODEL
     private var assistantOpen = false
     /** Calls of the response in progress; their results are sent together when it is done. */
     private val pendingCalls = mutableListOf<Pair<String, Deferred<String>>>()
 
     /** Caller must have the RECORD_AUDIO permission. */
-    fun start(apiKey: String, voice: String) {
+    fun start(apiKey: String, model: String, voice: String) {
         if (client != null) return
-        Log.i(TAG, "start: key ${apiKey.length} chars, voice $voice")
+        Log.i(TAG, "start: key ${apiKey.length} chars, model $model, voice $voice")
         _state.value = State.Connecting
         _problem.value = null
+        _spend.value = Spend()
+        this.model = model
         val c = RealtimeClient(this)
         client = c
         // A bad key or URL throws while the request is built; show that instead of crashing the app.
-        runCatching { c.connect(apiKey, voice, tools?.instructions ?: INSTRUCTIONS, tools?.definitions.orEmpty()) }
+        runCatching { c.connect(apiKey, model, voice,tools?.instructions ?: INSTRUCTIONS, tools?.definitions.orEmpty()) }
             .onFailure {
                 Log.w(TAG, "connect threw ${it.javaClass.simpleName}")
                 fail(it.message ?: "could not start the connection")
@@ -116,6 +127,7 @@ class VoiceSession(
                 is RealtimeProtocol.Event.AudioDelta -> audio.play(event.pcm)
                 is RealtimeProtocol.Event.AssistantText -> appendAssistant(event.delta)
                 is RealtimeProtocol.Event.UserText -> {
+                    event.usage?.let { record(RealtimeProtocol.TRANSCRIBE_MODEL, it) }
                     assistantOpen = false
                     if (event.text.isNotBlank()) _turns.value = _turns.value + Turn(fromUser = true, text = event.text.trim())
                 }
@@ -137,7 +149,8 @@ class VoiceSession(
                     }
                 }
                 // The model waits for function results; send them all, then ask it to go on.
-                RealtimeProtocol.Event.ResponseDone -> {
+                is RealtimeProtocol.Event.ResponseDone -> {
+                    event.usage?.let { record(model, it) }
                     assistantOpen = false
                     if (pendingCalls.isNotEmpty()) {
                         val calls = pendingCalls.toList()
@@ -187,6 +200,14 @@ class VoiceSession(
         assistantOpen = false
         pendingCalls.forEach { it.second.cancel() }
         pendingCalls.clear()
+    }
+
+    private fun record(model: String, usage: Usage) {
+        val usd = RealtimeProtocol.pricesFor(model).cost(usage)
+        // Counts only, never content: the log shows what a turn cost without what was said.
+        Log.i(TAG, "usage $model tokens=${usage.total} cached=${usage.cachedIn} audioOut=${usage.audioOut} usd=${UsageFormat.usd(usd)}")
+        _spend.value = _spend.value.let { Spend(it.tokens + usage.total, it.usd + usd) }
+        onUsage(model, usage, usd)
     }
 
     private fun appendAssistant(delta: String) {

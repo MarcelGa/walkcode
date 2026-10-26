@@ -3,6 +3,7 @@ package dev.walkcode.app.data
 import android.content.Context
 import android.content.SharedPreferences
 import dev.walkcode.app.voice.OpenAiKey
+import dev.walkcode.app.voice.RealtimeProtocol
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -45,6 +46,9 @@ class AppSettings private constructor(private val prefs: SharedPreferences) {
     /** Preset OpenAI Realtime voice (no cloning). */
     private val _realtimeVoice = MutableStateFlow(prefs.getString(KEY_REALTIME_VOICE, null) ?: DEFAULT_REALTIME_VOICE)
     val realtimeVoice: StateFlow<String> = _realtimeVoice
+    /** Realtime model id; walk mode uses it from its next start. */
+    private val _realtimeModel = MutableStateFlow(prefs.getString(KEY_REALTIME_MODEL, null) ?: RealtimeProtocol.DEFAULT_MODEL)
+    val realtimeModel: StateFlow<String> = _realtimeModel
 
     fun setOpenAiKey(v: String?) {
         val clean = OpenAiKey.clean(v)
@@ -52,6 +56,7 @@ class AppSettings private constructor(private val prefs: SharedPreferences) {
         _openAiKey.value = clean
     }
     fun setRealtimeVoice(v: String) { put(KEY_REALTIME_VOICE, v); _realtimeVoice.value = v }
+    fun setRealtimeModel(v: String) { put(KEY_REALTIME_MODEL, v); _realtimeModel.value = v }
 
     /** Changing the engine invalidates the voice, which belongs to one engine. */
     fun setTtsEngine(v: String?) { put(KEY_TTS_ENGINE, v); _ttsEngine.value = v; setTtsVoice(null) }
@@ -104,6 +109,7 @@ class AppSettings private constructor(private val prefs: SharedPreferences) {
         private const val KEY_BATTERY_PROMPTED = "battery_prompted"
         private const val KEY_OPENAI_KEY = "openai_key"
         private const val KEY_REALTIME_VOICE = "realtime_voice"
+        private const val KEY_REALTIME_MODEL = "realtime_model"
         const val DEFAULT_REALTIME_VOICE = "marin"
 
         @Volatile private var instance: AppSettings? = null

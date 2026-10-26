@@ -298,6 +298,27 @@ Steps: (1) Realtime voice session from the phone with a key from Settings;
 (2) workspace tools over the existing SSH connections; (3) two or three workspaces with distinct voices
 and persona prompts; (4) measure time to first audio, interruption handling and cost per minute on the
 S25. Open: the foreground-service and background-audio path for Android 15+.
+Cost work (2026-10-26): (a) model picker in the new Settings > Dictation and walk mode screen
+(`ui/VoiceSettingsScreen.kt`; dictation and the assistant moved there), stored in `AppSettings.realtimeModel`;
+`voice-talk.ps1` picks `gpt-realtime-2.1-mini` and `voice-talk.ps1` / `screenshots.ps1` refuse any other model.
+(b) Fewer false turns outdoors: `near_field` noise reduction, VAD threshold 0.65, 700 ms end-of-turn silence.
+**Verified:** JVM tests; `voice-talk.ps1` PASS on the mini model (both workspace functions ran, audio played).
+**Not verified:** whether noise reduction and the stricter VAD cut false turns on a real walk, or clip quiet
+speech (tune `VAD_THRESHOLD` if so); the mini model on the phone with real agents.
+(c) Usage tracking: `response.done` and transcription `usage` are parsed into `voice/Usage`, priced with the
+list prices in `RealtimeProtocol.MODELS` (`Prices`, OpenAI pricing page 2026-10-26), and summed per day and
+model in Room (`voice_usage`, v5; cost fixed at the time of use). The walk screen shows "This conversation:
+tokens · about $x"; Settings > Dictation and walk mode shows today / this month / all time, this month by
+model, and a Reset; the Settings row shows this month's spend. Logcat has `usage <model> tokens=… usd=…`.
+**Verified:** JVM tests (`RealtimeProtocolTest` usage/cost/format, `UsageTotalTest`); `voice-talk.ps1` PASS
+with usage checks: 3 responses, 3.3k tokens, about $0.009 on mini, same totals in Settings; the v4 -> v5
+migration ran over the emulator's existing database. **Not verified:** a spoken (transcribed) turn, which
+adds a `gpt-4o-mini-transcribe` row; how close the estimate is to OpenAI's billing page.
+Known gap: a response still running when walk mode is stopped is billed but not counted (its `response.done`
+arrives after the socket is closed).
+Mockup v6 (Settings row, new Settings › Voice screen, cost line on the walk screen), README and its
+screenshots (`walk-mode.png` with the cost line, `settings-voice.png` with models and usage) updated.
+Next: shorter context (trim tool outputs, `truncation`), idle auto-stop.
 
 ## Manual reorder (2026-10-25)
 

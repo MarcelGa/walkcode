@@ -37,6 +37,7 @@ private sealed interface Route {
     data object Hosts : Route
     data object Settings : Route
     data object Walk : Route
+    data object VoiceSettings : Route
     data class Project(val id: Long?) : Route
     data class Workspace(val id: Long) : Route
     data class WorkspaceEditor(val id: Long?, val projectId: Long?) : Route
@@ -95,8 +96,9 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
                         Spacer1(Modifier.weight(1f))
                     }
                     Route.Settings -> {
-                        SettingsScreen(repo, settings)
+                        SettingsScreen(repo, settings, onOpenVoice = { push(Route.VoiceSettings) })
                     }
+                    Route.VoiceSettings -> VoiceSettingsScreen(repo, settings, onBack = ::pop)
                     Route.Walk -> WalkScreen(walk, settings, onBack = ::pop)
                     is Route.Project -> ProjectDetailScreen(
                         repo, monitor, r.id, onBack = ::pop,

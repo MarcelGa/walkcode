@@ -40,6 +40,7 @@
                overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .row .t span.path{color:var(--blue)}
   .row .t span.ok{color:var(--accent)}
+  .row > .ok{color:var(--accent)} .row > .mut, .list .mut{color:var(--mut)}
   .pill{font-size:11px;color:var(--mut);border:1px solid var(--line);
         border-radius:999px;padding:3px 8px;white-space:nowrap}
   .pill.hot{color:var(--warn);border-color:#4a3a12}
@@ -115,9 +116,10 @@
 </style>
 </head>
 <body>
-  <h1>Walkcode — clickable mockup v5</h1>
+  <h1>Walkcode — clickable mockup v6</h1>
   <div class="sub">Projects (with walk mode, the voice assistant for all workspaces) → Workspaces → Sessions,
-    Hosts (with the phone-key setup), Settings (dictation, voice assistant, backup), the terminal including
+    Hosts (with the phone-key setup), Settings (alerts, backup) and its Voice screen (dictation, the assistant's
+    model, voice and key, and what walk mode has cost), the terminal including
     the cached screen while reconnecting, and the alerts. Matches the app as of 2026-10-26. Static; hover states only.
     <strong>Hover or tap anything with a dotted underline or a question cursor to see what it is.</strong></div>
 
@@ -152,6 +154,7 @@
         <div class="bar"><span class="mut" data-tip="Back to Projects (walk mode keeps running)">← Walk mode</span><span></span></div>
         <div class="chat">
           <div class="st" data-tip="Live: listening. The voice is the default from Settings; audio goes to a headset if one is connected, else the loudspeaker.">Listening — speak or type. Voice: Marin · Audio: speaker</div>
+          <div class="st" data-tip="What this conversation has used so far: the tokens OpenAI reported after each reply, priced at list rates. An estimate; OpenAI's billing page is what is charged. Stays visible after Stop.">This conversation: 18.4k tokens · about $0.21</div>
           <div class="u">You: Is any agent waiting for me?</div>
           <div class="tool" data-tip="What the assistant looked at, so you can tell an answer from a guess">· Looking at the workspaces</div>
           <div class="tool">· Reading the screens</div>
@@ -320,7 +323,7 @@
 
     <!-- Settings -->
     <figure class="phone">
-      <figcaption class="cap" data-tip="Settings: alerts, dictation, the voice assistant (walk mode's key and voice), config backup and battery.">Settings</figcaption>
+      <figcaption class="cap" data-tip="Settings: alerts, the Voice screen (dictation and walk mode), config backup and battery.">Settings</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
         <div class="bar"><span>Settings</span><span></span></div>
@@ -331,14 +334,8 @@
           <div class="pad" style="padding:4px 14px 8px;display:flex;gap:6px;flex-wrap:wrap" data-tip="How long a session must be silent before it counts as quiet. Default 15 s. Highlighted: current value.">
             <span class="pill">5s</span><span class="pill">10s</span><span class="pill hot">15s</span><span class="pill">30s</span><span class="pill">60s</span><span class="pill">120s</span>
           </div>
-          <div class="sect">Dictation</div>
-          <div class="row" data-tip="After dictation, press Enter for you so the agent gets the text. Off leaves it in the prompt to check first."><div class="t"><b>Send dictation automatically</b><span>Press Enter after the dictated text</span></div><i class="sw on"></i></div>
-          <div class="row" data-tip="Which speech recognizer turns your dictation into text. Phone default uses on-device recognition when available."><div class="t"><b>Dictation recognizer</b><span>Phone default (on-device if available)</span></div></div>
-          <div class="row" data-tip="The language your dictation is recognized in. Languages marked as not installed can be downloaded for offline use."><div class="t"><b>Dictation language</b><span>English (United States) · installed</span></div></div>
-          <div class="row" data-tip="A language that is not installed yet. Download fetches its recognition model to the phone."><div class="t"><b>Deutsch</b><span>not installed</span></div><span class="pill" data-tip="Download the recognition model for this language">Download</span></div>
-          <div class="sect">Voice assistant</div>
-          <div class="row" data-tip="The preset OpenAI voice walk mode speaks with. ▶ plays a sample."><div class="t"><b>Default voice</b><span>Marin</span></div><span class="pill on" data-tip="Play a sample of this voice">▶</span></div>
-          <div class="row" data-tip="Needed for walk mode. Shown masked; kept on this phone only and never written to a config backup."><div class="t"><b>OpenAI API key</b><span>Saved: sk-proj-…a1b2 (164 characters)</span></div><span class="pill" data-tip="Forget the key">Remove</span></div>
+          <div class="sect">Voice</div>
+          <div class="row" data-tip="Opens the Voice screen: dictation, and walk mode's model, voice, key and usage. The subtitle shows the model walk mode starts on and this month's estimated spend."><div class="t"><b>Dictation and walk mode</b><span>Walk mode on GPT Realtime 2.1 mini · $4.82 this month</span></div><span class="mut">›</span></div>
           <div class="sect">Backup</div>
           <div class="row" data-tip="Saves hosts, projects, workspaces, agent presets and settings to a JSON file. Keys are never included, so re-authorize the phone on each host after importing."><div class="t"><b>Export config</b><span>Hosts, projects, workspaces, agent presets and settings. No keys.</span></div><span class="pill" data-tip="Choose where to save walkcode-config.json">Export</span></div>
           <div class="row" data-tip="Loads a config file made by Export. Anything already present by name is kept; settings are replaced."><div class="t"><b>Import config</b><span>Adds what is missing; existing names are kept.</span></div><span class="pill" data-tip="Pick a config file to import">Import</span></div>
@@ -346,6 +343,33 @@
           <div class="row" data-tip="Android may pause background monitoring to save battery. Unrestricted lets monitoring keep running while the screen is off."><div class="t"><b>Battery optimisation</b><span class="ok">Unrestricted — monitoring can run while the screen is off</span></div></div>
         </div>
         <div class="nav"><div data-tip="Projects tab">Projects</div><div data-tip="Hosts tab">Hosts</div><div class="sel" data-tip="Settings tab (current screen)">Settings</div></div>
+      </div>
+    </figure>
+
+    <!-- Settings > Voice -->
+    <figure class="phone">
+      <figcaption class="cap" data-tip="Settings › Dictation and walk mode: everything about voice in one place, and what walk mode has cost.">Settings › Voice</figcaption>
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
+        <div class="bar"><span class="mut" data-tip="Back to Settings">← Voice</span><span></span></div>
+        <div class="list">
+          <div class="sect">Dictation</div>
+          <div class="row" data-tip="After dictation, press Enter for you so the agent gets the text. Off leaves it in the prompt to check first."><div class="t"><b>Send dictation automatically</b><span>Press Enter after the dictated text</span></div><i class="sw on"></i></div>
+          <div class="row" data-tip="Which speech recognizer turns your dictation into text. Phone default uses on-device recognition when available."><div class="t"><b>Dictation recognizer</b><span>Phone default (on-device if available)</span></div></div>
+          <div class="row" data-tip="The language your dictation is recognized in. Languages not installed yet can be downloaded for offline use from its list."><div class="t"><b>Dictation language</b><span>English (United States)</span></div></div>
+          <div class="sect">Voice assistant</div>
+          <div class="row" data-tip="The OpenAI Realtime model walk mode talks with. The price is the audio rate per 1M tokens, in / out. A change applies from the next start of walk mode."><div class="t"><b>GPT Realtime 2</b><span>$32 / $64</span></div></div>
+          <div class="row"><div class="t"><b>GPT Realtime 2.1</b><span>$32 / $64</span></div></div>
+          <div class="row" data-tip="About a third of the price, but weaker at calling the workspace functions. The selected model is marked. Automated tests always use this one."><div class="t"><b>GPT Realtime 2.1 mini</b><span>$10 / $20 — cheapest, weaker with functions</span></div><span class="ok">●</span></div>
+          <div class="row" data-tip="The preset OpenAI voice walk mode speaks with. ▶ plays a sample."><div class="t"><b>Default voice</b><span>Marin</span></div><span class="pill on" data-tip="Play a sample of this voice">▶</span></div>
+          <div class="row" data-tip="Needed for walk mode. Shown masked; kept on this phone only and never written to a config backup."><div class="t"><b>OpenAI API key</b><span>Saved: sk-proj-…a1b2 (164 characters)</span></div><span class="pill" data-tip="Forget the key">Remove</span></div>
+          <div class="sect">Usage</div>
+          <div class="row" data-tip="Estimated from the tokens OpenAI reports after each reply, at list prices. Cached input (the conversation re-read on each reply) is billed at a fraction of the rate."><div class="t"><b>Today</b><span>412.6k tokens, 380.2k of them cached (cheap)</span></div><span>$0.62</span></div>
+          <div class="row"><div class="t"><b>This month</b><span>3.1M tokens, 2.8M of them cached (cheap)</span></div><span>$4.82</span></div>
+          <div class="row"><div class="t"><b>All time</b><span>5.4M tokens, 4.9M of them cached (cheap)</span></div><span>$11.37</span></div>
+          <div class="pad mut" style="padding:2px 14px 8px;font-size:11px" data-tip="This month split by model, so the saving from a cheaper model is visible">GPT Realtime 2.1 mini: $3.10 · 2.6M tokens<br>GPT Realtime 2: $1.72 · 0.5M tokens</div>
+          <div class="btn ghost" data-tip="Clears the totals on this phone after a confirmation. Your OpenAI account is not affected.">Reset usage</div>
+        </div>
       </div>
     </figure>
 

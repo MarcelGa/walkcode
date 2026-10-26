@@ -123,3 +123,18 @@ interface SessionDao {
     @Query("UPDATE sessions SET lastViewedAt = :at, lastViewedHash = :hash WHERE id = :id")
     suspend fun markViewed(id: Long, at: Long, hash: String?)
 }
+
+@Dao
+interface VoiceUsageDao {
+    @Query("SELECT * FROM voice_usage ORDER BY day")
+    fun observeAll(): Flow<List<VoiceUsage>>
+
+    @Query("SELECT * FROM voice_usage WHERE day = :day AND model = :model")
+    suspend fun get(day: String, model: String): VoiceUsage?
+
+    @Upsert
+    suspend fun upsert(row: VoiceUsage)
+
+    @Query("DELETE FROM voice_usage")
+    suspend fun clear()
+}

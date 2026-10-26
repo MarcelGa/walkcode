@@ -53,6 +53,9 @@ the Docker host. For testing on the real phone see [docs/DEVICE-TESTING.md](docs
 `voice-talk.ps1` needs `OPENAI_API_KEY` in `tools/local.env` (typed into the app, never printed) and
 an emulator with audio: it starts one without `-no-audio` if none is running, unlike the other runners.
 The emulator mic is silent, so the runner types its message; real speech is only testable on the phone.
+It picks the cheapest Realtime model in Settings and fails before the first request on any other.
+If walk mode hangs on "connecting" and `adb shell ping api.openai.com` says unknown host, the emulator
+lost DNS: restart it with `-dns-server 8.8.8.8`.
 Voice logs carry event types and function names only: `adb logcat -s WalkcodeVoice:V`.
 Walk mode's functions without the voice model (Docker host, no key needed):
 `adb shell am instrument -w -e class dev.walkcode.app.assistant.WorkspaceToolsTest dev.walkcode.app.test/androidx.test.runner.AndroidJUnitRunner`

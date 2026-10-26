@@ -9,8 +9,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Host::class, Project::class, AgentPreset::class, Workspace::class, Session::class],
-    version = 4,
+    entities = [Host::class, Project::class, AgentPreset::class, Workspace::class, Session::class, VoiceUsage::class],
+    version = 5,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -20,6 +20,7 @@ abstract class WalkcodeDatabase : RoomDatabase() {
     abstract fun agentPresets(): AgentPresetDao
     abstract fun workspaces(): WorkspaceDao
     abstract fun sessions(): SessionDao
+    abstract fun voiceUsage(): VoiceUsageDao
 
     companion object {
         private const val NAME = "walkcode.db"
@@ -44,6 +45,17 @@ abstract class WalkcodeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `voice_usage` (`day` TEXT NOT NULL, `model` TEXT NOT NULL, " +
+                        "`calls` INTEGER NOT NULL, `textIn` INTEGER NOT NULL, `audioIn` INTEGER NOT NULL, " +
+                        "`cachedIn` INTEGER NOT NULL, `textOut` INTEGER NOT NULL, `audioOut` INTEGER NOT NULL, " +
+                        "`costUsd` REAL NOT NULL, PRIMARY KEY(`day`, `model`))",
+                )
+            }
+        }
+
         @Volatile private var instance: WalkcodeDatabase? = null
 
         fun get(context: Context): WalkcodeDatabase =
@@ -53,7 +65,7 @@ abstract class WalkcodeDatabase : RoomDatabase() {
 
         private fun build(context: Context): WalkcodeDatabase =
             Room.databaseBuilder(context, WalkcodeDatabase::class.java, NAME)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .addCallback(SeedBuiltInAgents)
                 .build()
 
