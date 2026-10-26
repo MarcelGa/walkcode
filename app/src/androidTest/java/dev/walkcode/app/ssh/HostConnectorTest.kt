@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import dev.walkcode.app.data.Host
 import dev.walkcode.app.data.ShellKind
 import dev.walkcode.app.data.WalkcodeRepository
+import dev.walkcode.app.session.SessionService
 import kotlinx.coroutines.runBlocking
 import net.schmizz.sshj.SSHClient
 import org.junit.Assert.assertEquals
@@ -80,6 +81,38 @@ class HostConnectorTest {
         } finally {
             connected.client.close()
         }
+      }
+    }
+
+    /** On VPN the LAN address times out; once the tailnet one has worked it is tried first. */
+    @Test
+    fun remembersLastWorkingAddress() {
+      runBlocking {
+        val hostId = repo.addHost(
+            "docker test host via vpn", "dev", ShellKind.TMUX,
+            lanHost = "10.255.255.1", tailnetHost = "10.0.2.2", port = 2222,
+        )
+        val service = SessionService(repo, connector)
+
+        val firstAttempts = mutableListOf<String>()
+        service.connect(repo.host(hostId)!!, onAttempt = { firstAttempts += it }).client.close()
+        assertEquals(listOf("10.255.255.1", "10.0.2.2"), firstAttempts)
+        assertEquals("10.0.2.2", repo.host(hostId)!!.lastAddress)
+
+        // A Host read before the first connect still uses the remembered address.
+        val stale = Host(id = hostId, name = "stale", username = "dev", shell = ShellKind.TMUX, lanHost = "10.255.255.1", tailnetHost = "10.0.2.2", port = 2222)
+        val secondAttempts = mutableListOf<String>()
+        val started = System.currentTimeMillis()
+        val second = service.connect(stale, onAttempt = { secondAttempts += it })
+        val tookMs = System.currentTimeMillis() - started
+        try {
+            assertEquals(listOf("10.0.2.2"), secondAttempts)
+            assertEquals("dev", echo(second.client))
+            assertTrue("second connect took $tookMs ms", tookMs < 5_000)
+        } finally {
+            second.client.close()
+        }
+        Log.i(TAG, "remembered 10.0.2.2, second connect in $tookMs ms")
       }
     }
 

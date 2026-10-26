@@ -207,6 +207,7 @@ private suspend fun testConnection(repo: WalkcodeRepository, host: Host): String
     val connected = HostConnector(DeviceKey.getOrCreate()).connect(host)
     runCatching { connected.client.close() }
     if (connected.newlyTrusted) repo.trustHostKey(host.id, connected.hostKey.algorithm, connected.hostKey.fingerprint)
+    repo.rememberAddress(host.id, connected.address)
     "Connected via ${connected.address}. This phone is authorized."
 } catch (e: HostUnreachableException) {
     // The connector keeps per-address failures; a refused login means the key is not on the host yet.

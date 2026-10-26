@@ -11,7 +11,8 @@ enum class ShellKind { TMUX, PSMUX }
 /**
  * A machine Walkcode can reach over SSH. Addresses are stored separately because
  * the LAN name only resolves on the home network while the tailnet address works
- * everywhere (the app tries LAN first, then falls back).
+ * everywhere (the app tries LAN first, then falls back). The address that last worked
+ * is tried first, so on VPN the app does not wait for the LAN name to time out again.
  */
 @Entity(tableName = "hosts")
 data class Host(
@@ -26,9 +27,16 @@ data class Host(
     val hostKeyAlgorithm: String? = null,
     val hostKeyFingerprint: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    /** The address of the last successful connection; local to this phone, not in the config backup. */
+    val lastAddress: String? = null,
 ) {
-    /** Candidate addresses in the order the app should try them. */
-    val addresses: List<String> get() = listOfNotNull(lanHost?.takeIf { it.isNotBlank() }, tailnetHost?.takeIf { it.isNotBlank() })
+    /** Candidate addresses in the order the app should try them: the last one that worked, then LAN, then tailnet. */
+    val addresses: List<String> get() {
+        val configured = listOfNotNull(lanHost?.takeIf { it.isNotBlank() }, tailnetHost?.takeIf { it.isNotBlank() })
+        // A remembered address no longer configured (the host was edited) is ignored.
+        val last = lastAddress?.takeIf { it in configured } ?: return configured
+        return listOf(last) + (configured - last)
+    }
 }
 
 /** A local, colour-coded label grouping workspaces. Nothing about it reaches a host. */

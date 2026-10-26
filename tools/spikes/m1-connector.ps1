@@ -40,7 +40,7 @@ $keysFile = "$root\tools\testhost\keys\authorized_keys"
 if (-not (Select-String -Path $keysFile -SimpleMatch $pub -Quiet)) { Add-Content $keysFile $pub }
 docker exec walkcode-testhost bash -c "grep -qxF '$pub' /home/dev/.ssh/authorized_keys || echo '$pub' >> /home/dev/.ssh/authorized_keys"
 
-$results = foreach ($m in 'pinsOnFirstUse_thenMatches_andRejectsChange', 'fallsBackToSecondAddress', 'noAddress_fails') {
+$results = foreach ($m in 'pinsOnFirstUse_thenMatches_andRejectsChange', 'fallsBackToSecondAddress', 'remembersLastWorkingAddress', 'noAddress_fails') {
     "$m : $(if (Invoke-Spike $m) { 'PASS' } else { 'FAIL' })"
 }
 $results

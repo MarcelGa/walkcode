@@ -14,7 +14,7 @@ class NoAddressException(val hostName: String) : Exception("host $hostName has n
 
 /**
  * Opens an authenticated SSH connection to a [Host], trying its addresses in order
- * (LAN first, then tailnet) and pinning its host key on first use. On a host-key
+ * (the last one that worked, then LAN, then tailnet) and pinning its host key on first use. On a host-key
  * mismatch it stops immediately: a shifted key means something is wrong, so trying
  * another address of the same machine would only hide it.
  */

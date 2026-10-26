@@ -22,6 +22,9 @@ interface HostDao {
 
     @Query("UPDATE hosts SET hostKeyAlgorithm = :algorithm, hostKeyFingerprint = :fingerprint WHERE id = :id")
     suspend fun pinHostKey(id: Long, algorithm: String, fingerprint: String)
+
+    @Query("UPDATE hosts SET lastAddress = :address WHERE id = :id")
+    suspend fun setLastAddress(id: Long, address: String)
 }
 
 @Dao

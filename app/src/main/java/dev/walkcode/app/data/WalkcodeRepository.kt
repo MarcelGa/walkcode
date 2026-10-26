@@ -63,6 +63,9 @@ class WalkcodeRepository(private val db: WalkcodeDatabase) {
     suspend fun trustHostKey(hostId: Long, algorithm: String, fingerprint: String) =
         db.hosts().pinHostKey(hostId, algorithm, fingerprint)
 
+    /** Remembers the address that just worked so the next connection tries it first. */
+    suspend fun rememberAddress(hostId: Long, address: String) = db.hosts().setLastAddress(hostId, address)
+
     // --- Projects / presets ------------------------------------------------
 
     suspend fun addProject(name: String, color: Int? = null): Long =

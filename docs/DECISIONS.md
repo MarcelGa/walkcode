@@ -50,7 +50,9 @@ revisit. Each line is a decision, not an open question.
 
 - **Direct SSH** from the phone.
 - Per host, try the **LAN address first** (e.g. `dev.local`, which resolves on Wi-Fi
-  only, not over VPN), then fall back to the **Tailscale** address.
+  only, not over VPN), then fall back to the **Tailscale** address. The address that
+  last worked is remembered per host (`Host.lastAddress`, not in the backup) and tried
+  first, so on VPN reconnects skip the LAN timeout.
 - Tailscale may also be used as the always-on path.
 
 ## Attention / alerts

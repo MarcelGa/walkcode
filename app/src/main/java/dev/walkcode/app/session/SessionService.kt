@@ -25,10 +25,13 @@ class SessionService(
 ) {
 
     suspend fun connect(host: Host, onAttempt: (String) -> Unit = {}): HostConnector.Connected {
-        val connected = connector.connect(host, onAttempt = onAttempt)
+        // Callers may hold a Host read before the last connection; the stored address is fresher.
+        val lastAddress = repository.host(host.id)?.lastAddress ?: host.lastAddress
+        val connected = connector.connect(host.copy(lastAddress = lastAddress), onAttempt = onAttempt)
         if (connected.newlyTrusted) {
             repository.trustHostKey(host.id, connected.hostKey.algorithm, connected.hostKey.fingerprint)
         }
+        if (connected.address != lastAddress) repository.rememberAddress(host.id, connected.address)
         return connected
     }
 
