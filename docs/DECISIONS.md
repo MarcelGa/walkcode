@@ -17,6 +17,9 @@ revisit. Each line is a decision, not an open question.
   Hermes**, inside `tmux` (Linux) / `psmux` (Windows) on the user's own hosts.
 - **No backend / no server component.** The phone talks to hosts directly over SSH.
 - Control surface is the multiplexer; the app does not reimplement the agents.
+- **Calendar versions** (2026-10-26): releases are tagged `vYYYY.MM.N`, N counting releases within
+  the month from 1 (`v2026.10.1`, `v2026.10.2`, `v2026.11.1`); the app shows it without the `v`.
+  The earlier semver releases (v0.1.0–v0.3.0) were deleted; the first calendar release is v2026.10.1.
 
 ## Data model
 

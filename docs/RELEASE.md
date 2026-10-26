@@ -7,14 +7,15 @@ Obtainium on the phone watches the latest release and offers updates.
 ## Cut a release
 
 ```powershell
-git tag v0.2.0
-git push origin v0.2.0
+git tag -a v2026.10.1 -m "WalkCode 2026.10.1"
+git push origin v2026.10.1
 ```
 
-The tag becomes the `versionName` (`0.2.0`). The workflow run number becomes the
+Tags are calendar versions `vYYYY.MM.N` (N counts releases within the month, from 1; see
+docs/DECISIONS.md). The tag without the `v` becomes the `versionName` (`2026.10.1`). The workflow run number becomes the
 `versionCode`, which always increases, so Android accepts every new release as an update.
 The workflow runs the JVM unit tests before it builds the APK. Progress is under the
-repo's Actions tab. A finished run creates a GitHub Release with `walkcode-v0.2.0.apk`.
+repo's Actions tab. A finished run creates a GitHub Release with `walkcode-v2026.10.1.apk`.
 
 To build an APK without publishing a release, run the workflow by hand from the Actions tab
 (`workflow_dispatch`). The APK is attached to that run as an artifact.

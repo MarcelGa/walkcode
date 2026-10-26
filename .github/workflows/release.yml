@@ -1,7 +1,7 @@
 name: Release
 
-# Push a tag like v0.2.0 to publish a signed APK as a GitHub Release. Obtainium on the
-# phone watches the latest release. Manual runs build and upload the APK as a workflow
+# Push a tag like v2026.10.1 (calendar versions, see docs/DECISIONS.md) to publish a signed APK
+# as a GitHub Release. Obtainium on the phone watches the latest release. Manual runs build and upload the APK as a workflow
 # artifact only, without publishing a release.
 #
 # Two jobs: `check` must pass before `build` creates any artifact. It runs the JVM tests
