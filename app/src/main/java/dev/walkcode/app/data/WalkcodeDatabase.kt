@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Host::class, Project::class, AgentPreset::class, Workspace::class, Session::class, VoiceUsage::class],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -62,6 +62,20 @@ abstract class WalkcodeDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Existing sessions get no id (their conversation id is unknown). The built-in Claude preset
+         * moves to per-session ids unless it was changed by hand.
+         */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE sessions ADD COLUMN agentSessionId TEXT")
+                db.execSQL(
+                    "UPDATE agent_presets SET command = 'claude --session-id {id}', resumeCommand = 'claude --resume {id}' " +
+                        "WHERE id = 1 AND builtIn = 1 AND command = 'claude' AND resumeCommand = 'claude --continue'",
+                )
+            }
+        }
+
         @Volatile private var instance: WalkcodeDatabase? = null
 
         fun get(context: Context): WalkcodeDatabase =
@@ -71,7 +85,7 @@ abstract class WalkcodeDatabase : RoomDatabase() {
 
         private fun build(context: Context): WalkcodeDatabase =
             Room.databaseBuilder(context, WalkcodeDatabase::class.java, NAME)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .addCallback(SeedBuiltInAgents)
                 .build()
 

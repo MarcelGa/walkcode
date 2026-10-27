@@ -111,12 +111,17 @@ data class Session(
     /** Manual position within its workspace (long-press drag); new sessions go last. */
     val sortOrder: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
+    /**
+     * The agent's own conversation id (a UUID), substituted for `{id}` in preset commands so a
+     * stopped session resumes its own conversation. Null for sessions created before it existed.
+     */
+    val agentSessionId: String? = null,
 )
 
-/** `claude --continue`, used for built-in presets. */
+/** Claude Code is started with a fixed conversation id so each session resumes its own conversation. */
 object BuiltInAgents {
     fun defaults(): List<AgentPreset> = listOf(
-        AgentPreset(id = 1, name = "Claude Code", command = "claude", resumeCommand = "claude --continue", builtIn = true, sortOrder = 0),
+        AgentPreset(id = 1, name = "Claude Code", command = "claude --session-id {id}", resumeCommand = "claude --resume {id}", builtIn = true, sortOrder = 0),
         AgentPreset(id = 2, name = "opencode", command = "opencode", resumeCommand = null, builtIn = true, sortOrder = 1),
         AgentPreset(id = 3, name = "Copilot CLI", command = "copilot", resumeCommand = null, builtIn = true, sortOrder = 2),
         AgentPreset(id = 4, name = "Hermes", command = "hermes", resumeCommand = null, builtIn = true, sortOrder = 3),

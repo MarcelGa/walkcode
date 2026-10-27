@@ -29,7 +29,7 @@ class SessionServiceTest {
     fun launchListResumeKill(): Unit = runBlocking<Unit> {
         val hostId = repo.addHost("m2 docker", "dev", ShellKind.TMUX, lanHost = "10.0.2.2", port = 2222)
         val presetId = repo.upsertAgentPreset(
-            AgentPreset(name = "fake", command = "echo WC_STARTED_FRESH; sleep 600", resumeCommand = "echo WC_STARTED_RESUME; sleep 600"),
+            AgentPreset(name = "fake", command = "echo WC_STARTED_FRESH {id}; sleep 600", resumeCommand = "echo WC_STARTED_RESUME {id}; sleep 600"),
         )
         val wsId = repo.addWorkspace("M2 Launch", hostId, "~/wc m2 dir", agentPresetId = presetId, args = "# it's arg")
         val host = repo.host(hostId)!!
@@ -52,7 +52,7 @@ class SessionServiceTest {
         try {
             Thread.sleep(1500)
             val screen = exec(c.client, "tmux capture-pane -p -t ${session.tmuxName}")
-            assertTrue("agent output missing: $screen", screen.contains("WC_STARTED_FRESH"))
+            assertTrue("agent output missing: $screen", screen.contains("WC_STARTED_FRESH ${session.agentSessionId}"))
             assertTrue("cwd wrong", exec(c.client, "tmux display -p -t ${session.tmuxName} '#{pane_current_path}'").contains("wc m2 dir"))
         } finally { c.client.close() }
 
@@ -72,7 +72,8 @@ class SessionServiceTest {
         val c3 = service.connect(host)
         try {
             Thread.sleep(1500)
-            assertTrue(exec(c3.client, "tmux capture-pane -p -t ${session.tmuxName}").contains("WC_STARTED_RESUME"))
+            // The resume command gets this session's own conversation id.
+            assertTrue(exec(c3.client, "tmux capture-pane -p -t ${session.tmuxName}").contains("WC_STARTED_RESUME ${session.agentSessionId}"))
             exec(c3.client, "tmux kill-session -t ${session.tmuxName}")
         } finally { c3.client.close() }
     }
@@ -94,8 +95,8 @@ class SessionServiceTest {
         val presetId = repo.upsertAgentPreset(
             AgentPreset(
                 name = "fake-win",
-                command = "Write-Host WC_STARTED_FRESH (Get-Location); Start-Sleep 600",
-                resumeCommand = "Write-Host WC_STARTED_RESUME; Start-Sleep 600",
+                command = "Write-Host WC_STARTED_FRESH {id} (Get-Location); Start-Sleep 600",
+                resumeCommand = "Write-Host WC_STARTED_RESUME {id}; Start-Sleep 600",
             ),
         )
         val wsId = repo.addWorkspace("M2 Win", hostId, "~/wc m2 dir", agentPresetId = presetId, args = "# it's arg")
@@ -118,7 +119,7 @@ class SessionServiceTest {
         try {
             Thread.sleep(4000)
             val screen = exec(c.client, "psmux capture-pane -p -t ${session.tmuxName}")
-            assertTrue("agent output missing: $screen", screen.contains("WC_STARTED_FRESH"))
+            assertTrue("agent output missing: $screen", screen.contains("WC_STARTED_FRESH ${session.agentSessionId}"))
             assertTrue("cwd wrong: $screen", screen.contains("wc m2 dir"))
         } finally { c.client.close() }
 
@@ -135,7 +136,7 @@ class SessionServiceTest {
         val c3 = service.connect(host)
         try {
             Thread.sleep(4000)
-            assertTrue(exec(c3.client, "psmux capture-pane -p -t ${session.tmuxName}").contains("WC_STARTED_RESUME"))
+            assertTrue(exec(c3.client, "psmux capture-pane -p -t ${session.tmuxName}").contains("WC_STARTED_RESUME ${session.agentSessionId}"))
             exec(c3.client, "psmux kill-session -t ${session.tmuxName}")
         } finally { c3.client.close() }
     }

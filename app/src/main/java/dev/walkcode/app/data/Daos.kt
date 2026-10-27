@@ -117,6 +117,9 @@ interface SessionDao {
     @Query("UPDATE sessions SET autoTitle = :title WHERE tmuxName = :tmuxName AND autoTitle IS NOT :title")
     suspend fun setAutoTitle(tmuxName: String, title: String?)
 
+    @Query("UPDATE sessions SET agentSessionId = :agentSessionId WHERE id = :id")
+    suspend fun setAgentSessionId(id: Long, agentSessionId: String)
+
     @Query("UPDATE sessions SET watched = :watched WHERE id = :id")
     suspend fun setWatched(id: Long, watched: Boolean)
 

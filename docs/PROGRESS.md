@@ -118,6 +118,8 @@ Navigation is a simple in-memory back stack (no navigation-compose).
 **Verified:** unit tests + `assembleDebug` green; app launches on the emulator and
 renders the Projects tab.
 **Verified on the Docker tmux host (`tools/spikes/m2-launch.ps1`, `SessionServiceTest`):** create session in a `~` directory with spaces, agent starts, listed as running, re-launch does not restart, kill, resume-after-stop uses the resume command.
+(2026-10-27) Resume is per session: `{id}` in preset commands carries `Session.agentSessionId`; verified on the
+emulator against the homelab VM with real Claude, two sessions in one workspace each reopening their own conversation.
 **Also verified on the Windows desktop with psmux (`tools/spikes/m2-launch-windows.ps1`):** same flow incl. `%USERPROFILE%` paths with spaces, raw-CR submit, no PTY.
 **Compose UI verified end to end on the emulator (`tools/spikes/m2-ui.ps1`, Docker host):** add host -> project -> workspace -> new session -> terminal attach -> typed input reaches tmux -> workspace list shows the session as running. M2 is done. Original note: the full flow against a real host
 (add host -> workspace -> new session -> terminal), esp. psmux quoting

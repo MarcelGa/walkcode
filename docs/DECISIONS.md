@@ -132,3 +132,14 @@ revisit. Each line is a decision, not an open question.
 - Nothing is typed into a session that the user did not hear: `propose_message` stores the text (it sends
   nothing) and the model reads it back; `send_proposed` sends only that stored text, after the user's yes.
   (A first design with one `send_to_session` + `confirmed` flag made the model ask twice; replaced.)
+
+## Per-session resume (2026-10-27)
+
+- Each session stores its agent's conversation id (`Session.agentSessionId`, a UUID made when the
+  session is created). Preset commands may contain `{id}`; the built-in Claude preset is
+  `claude --session-id {id}` / `claude --resume {id}`. `claude --continue` reopened the directory's
+  most recent conversation, so sessions sharing a workspace resumed each other's chats.
+- Tapping a **stopped** session resumes it when its preset has a resume command; the separate
+  "resume" pill is gone. "+ New session" is the only way to start an agent afresh.
+- Sessions created before ids existed resume through `claude --resume` without an id (Claude's
+  picker). Custom presets are left as they are; add `{id}` to them by hand (or via config import).

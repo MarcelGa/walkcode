@@ -57,7 +57,7 @@ class SessionService(
     /**
      * Connects, creates the multiplexer session (and starts the agent in it) when it does
      * not exist yet, and returns what the terminal needs to attach. [resume] starts the
-     * agent with the preset's resume command instead of a fresh run.
+     * agent with the preset's resume command instead of a fresh run (see [AgentCommand]).
      */
     suspend fun launch(
         host: Host,
@@ -75,8 +75,10 @@ class SessionService(
                 check(created.status == 0) { "could not create session: ${created.output.trim()}" }
                 val preset = workspace.agentPresetId?.let { repository.agentPreset(it) }
                 if (preset != null) {
-                    val base = if (resume) preset.resumeCommand ?: preset.command else preset.command
-                    val line = listOfNotNull(base, workspace.args?.takeIf { it.isNotBlank() }).joinToString(" ")
+                    val fresh = !resume || preset.resumeCommand == null
+                    val agentSessionId = session.agentSessionId
+                        ?: if (fresh && AgentCommand.needsId(preset)) repository.assignAgentSessionId(session.id) else null
+                    val line = AgentCommand.build(preset, resume, agentSessionId, workspace.args)
                     for (cmd in mux.sendCommand(session.tmuxName, line)) exec(connected.client, cmd)
                 }
             }

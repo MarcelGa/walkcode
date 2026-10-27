@@ -180,7 +180,7 @@ fun ColumnScope.TerminalScreen(
         val h = host ?: return@LaunchedEffect
         state = TermState.Connecting("")
         try {
-            val a = service.launch(h, w, s, resume = resume && attempt == 0, onAttempt = { addr -> state = TermState.Connecting(addr) })
+            val a = service.launch(h, w, s, resume = resume, onAttempt = { addr -> state = TermState.Connecting(addr) })
             attachment = a
             terminalView.attachSession(TerminalSession(SshTerminalTransport(a.client, a.command, a.pty), TRANSCRIPT_ROWS, controller))
             state = TermState.Attached

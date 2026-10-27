@@ -136,7 +136,9 @@ fun ColumnScope.WorkspaceScreen(
                     null -> if (state is HostState.Checking) "checking…" else "status unknown"
                 },
                 leading = { Dot(when (running) { true -> WC.Accent; false -> WC.Off; null -> WC.Warn }) },
-                onClick = { onOpenSession(s.id, false) },
+                // A stopped session reopens its own conversation when the agent can resume; starting
+                // afresh is what "+ New session" is for.
+                onClick = { onOpenSession(s.id, running == false && preset?.resumeCommand != null) },
                 trailing = {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (act?.unread == true) UnreadDot()
@@ -152,7 +154,6 @@ fun ColumnScope.WorkspaceScreen(
                                 askBattery = true
                             }
                         })
-                        if (running == false && preset?.resumeCommand != null) Pill("▶ resume", onClick = { onOpenSession(s.id, true) })
                         Pill("✎", onClick = { renaming = s })
                         Pill("✕", onClick = { pendingDelete = s })
                     }

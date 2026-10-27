@@ -3,6 +3,7 @@ package dev.walkcode.app.data
 import androidx.room.withTransaction
 import dev.walkcode.app.voice.Usage
 import kotlinx.coroutines.flow.Flow
+import java.util.UUID
 
 /**
  * Thin, testable wrapper over the DAOs. Holds the few rules that are more than
@@ -114,9 +115,17 @@ class WalkcodeRepository(private val db: WalkcodeDatabase) {
         val ordinal = Naming.nextOrdinal(siblings.map { it.ordinal })
         val name = Naming.tmuxName(workspace.slug, workspace.id, ordinal)
         val order = (siblings.maxOfOrNull { it.sortOrder } ?: -1) + 1
-        val id = db.sessions().upsert(Session(tmuxName = name, workspaceId = workspaceId, ordinal = ordinal, watched = watched, sortOrder = order))
+        val session = Session(
+            tmuxName = name, workspaceId = workspaceId, ordinal = ordinal, watched = watched, sortOrder = order,
+            agentSessionId = UUID.randomUUID().toString(),
+        )
+        val id = db.sessions().upsert(session)
         return requireNotNull(db.sessions().get(id))
     }
+
+    /** Gives a session created before conversation ids existed one, when its agent starts afresh. */
+    suspend fun assignAgentSessionId(sessionId: Long): String =
+        UUID.randomUUID().toString().also { db.sessions().setAgentSessionId(sessionId, it) }
 
     suspend fun sessionByName(tmuxName: String): Session? = db.sessions().getByTmuxName(tmuxName)
 
