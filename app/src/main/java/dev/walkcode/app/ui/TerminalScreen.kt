@@ -41,8 +41,11 @@ import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import dev.walkcode.app.data.AppSettings
 import dev.walkcode.app.walk.Dictation
 import kotlinx.coroutines.delay
@@ -179,6 +182,9 @@ fun ColumnScope.TerminalScreen(
         val w = workspace ?: return@LaunchedEffect
         val h = host ?: return@LaunchedEffect
         state = TermState.Connecting("")
+        // A reconnect replaces the dropped client; don't leave it open behind the new one.
+        attachment?.let { service.close(it.client) }
+        attachment = null
         try {
             val a = service.launch(h, w, s, resume = resume, onAttempt = { addr -> state = TermState.Connecting(addr) })
             attachment = a
@@ -187,6 +193,36 @@ fun ColumnScope.TerminalScreen(
             controller.showKeyboard()
         } catch (e: Exception) {
             state = TermState.Failed(describeFailure(e))
+        }
+    }
+
+    // A dropped link (app backgrounded, VPN or network switch) reconnects on its own while the
+    // screen is in the foreground: a few backed-off tries, then the manual button. Coming back
+    // to the app starts a fresh round.
+    var foreground by remember { mutableStateOf(true) }
+    var autoRetries by remember { mutableIntStateOf(0) }
+    DisposableEffect(context) {
+        val lifecycle = (context as ComponentActivity).lifecycle
+        val observer = LifecycleEventObserver { _, e ->
+            when (e) {
+                Lifecycle.Event.ON_RESUME -> { autoRetries = 0; foreground = true }
+                Lifecycle.Event.ON_STOP -> foreground = false
+                else -> {}
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(state, foreground) {
+        when (state) {
+            TermState.Attached -> autoRetries = 0
+            is TermState.Ended, is TermState.Failed -> {
+                if (!foreground || autoRetries >= RETRY_DELAYS_MS.size) return@LaunchedEffect
+                delay(RETRY_DELAYS_MS[autoRetries])
+                autoRetries++
+                attempt++
+            }
+            is TermState.Connecting -> {}
         }
     }
 
@@ -322,6 +358,8 @@ private fun Overlay(message: String, action: String?, onAction: (() -> Unit)?) {
     }
 }
 
+/** Waits before each automatic reconnect after a drop; the manual button takes over after the last. */
+private val RETRY_DELAYS_MS = longArrayOf(0L, 2000L, 5000L)
 /** How often a changed screen is written to the cache while attached. */
 private const val SNAPSHOT_MS = 2000L
 /** A CR in the same burst as the text reads as a pasted newline to some agents; give it a beat. */
