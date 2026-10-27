@@ -17,6 +17,14 @@ docs/DECISIONS.md). The tag without the `v` becomes the `versionName` (`2026.10.
 The workflow runs the JVM unit tests before it builds the APK. Progress is under the
 repo's Actions tab. A finished run creates a GitHub Release with `walkcode-v2026.10.1.apk`.
 
+The release notes list the commit subjects since the previous release (oldest first) and a
+compare link. Obtainium shows them with the update. To put hand-written highlights above the list,
+add them to the tag message after the subject line:
+
+```powershell
+git tag -a v2026.10.2 -m "WalkCode 2026.10.2" -m "Self-hosted voice for walk mode."
+```
+
 To build an APK without publishing a release, run the workflow by hand from the Actions tab
 (`workflow_dispatch`). The APK is attached to that run as an artifact.
 

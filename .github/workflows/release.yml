@@ -17,6 +17,8 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    outputs:
+      previous: ${{ steps.previous.outputs.base }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,6 +55,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the release notes list the commits since the previous release.
+          fetch-depth: 0
+          fetch-tags: true
 
       - uses: actions/setup-java@v4
         with:
@@ -97,6 +103,26 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
+      - name: Write release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          PREVIOUS: ${{ needs.check.outputs.previous }}
+        run: |
+          # checkout can leave the tag lightweight; fetch it again to keep its message.
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          notes="$RUNNER_TEMP/release-notes.md"
+          # The tag message after its subject line, if any, goes first as hand-written highlights.
+          body=$(git tag -l --format='%(contents:body)' "$GITHUB_REF_NAME")
+          if [ -n "$body" ]; then printf '%s\n\n' "$body"; fi > "$notes"
+          printf '## Changes\n\n' >> "$notes"
+          range="${PREVIOUS:+$PREVIOUS..}$GITHUB_REF_NAME"
+          git log --no-merges --reverse --format='- %s (%h)' "$range" >> "$notes"
+          if [ -n "$PREVIOUS" ]; then
+            printf '\n**Full changelog**: %s/%s/compare/%s...%s\n' \
+              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$PREVIOUS" "$GITHUB_REF_NAME" >> "$notes"
+          fi
+          cat "$notes"
+
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
@@ -106,4 +132,4 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "$APK"
           gh release create "$GITHUB_REF_NAME" "$APK" \
             --title "WalkCode $VERSION_NAME" \
-            --generate-notes
+            --notes-file "$RUNNER_TEMP/release-notes.md"
