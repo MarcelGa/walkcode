@@ -1,9 +1,13 @@
 package dev.walkcode.app.voice
 
+import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.serialization.json.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +27,9 @@ interface ToolHost {
 /**
  * One live voice conversation: socket, microphone, speaker, the transcript shown on screen and,
  * with [tools], the function calls the model makes (answered once its response is done).
+ *
+ * The conversation is one to the user, but under it the model session is replaced at quiet moments
+ * ([Rolling]); microphone, speaker, transcript and spend carry on across the switch.
  */
 class VoiceSession(
     private val scope: CoroutineScope,
@@ -31,7 +38,7 @@ class VoiceSession(
     private val tools: ToolHost? = null,
     /** Every response and transcription the server reports, with its estimated price, for the usage totals. */
     private val onUsage: (model: String, usage: Usage, usd: Double) -> Unit = { _, _, _ -> },
-) : RealtimeClient.Listener {
+) {
 
     enum class State { Idle, Connecting, Live, Error }
 
@@ -58,8 +65,23 @@ class VoiceSession(
     private val _spend = MutableStateFlow(Spend())
     val spend: StateFlow<Spend> = _spend
 
+    /** The socket of the current model session; callbacks from any other (an old rolled one) are dropped. */
     private var client: RealtimeClient? = null
+    private var apiKey = ""
     private var model = RealtimeProtocol.DEFAULT_MODEL
+    private var voice = ""
+
+    // Rolling state, in SystemClock.elapsedRealtime() milliseconds.
+    private var sessionSince = 0L
+    private var lastActivity = 0L
+    /** A fresh session is connecting while the old one's audio path stays up. */
+    private var rolling = false
+    /** A reply is being spoken (from its first audio or text until response.done). */
+    private var responding = false
+    /** Function calls started and not yet answered. */
+    private var callsInFlight = 0
+    private var rollJob: Job? = null
+
     private var assistantOpen = false
     /** Calls of the response in progress; their results are sent together when it is done. */
     private val pendingCalls = mutableListOf<Pair<String, Deferred<String>>>()
@@ -71,16 +93,64 @@ class VoiceSession(
         _state.value = State.Connecting
         _problem.value = null
         _spend.value = Spend()
+        this.apiKey = apiKey
         this.model = model
-        val c = RealtimeClient(this)
+        this.voice = voice
+        open(baseInstructions)
+    }
+
+    private val baseInstructions: String get() = tools?.instructions ?: INSTRUCTIONS
+
+    /** A new socket; it becomes [client], so events of the one before are ignored from now on. */
+    private fun open(instructions: String) {
+        lateinit var c: RealtimeClient
+        c = RealtimeClient(object : RealtimeClient.Listener {
+            override fun onOpen() { Log.i(TAG, "socket open") }
+            override fun onEvent(event: RealtimeProtocol.Event) = handle(c, event)
+            override fun onClosed(reason: String) = closed(c, reason)
+        })
         client = c
         // A bad key or URL throws while the request is built; show that instead of crashing the app.
-        runCatching { c.connect(apiKey, model, voice,tools?.instructions ?: INSTRUCTIONS, tools?.definitions.orEmpty()) }
+        runCatching { c.connect(apiKey, model, voice, instructions, tools?.definitions.orEmpty()) }
             .onFailure {
                 Log.w(TAG, "connect threw ${it.javaClass.simpleName}")
                 fail(it.message ?: "could not start the connection")
             }
     }
+
+    /**
+     * Replaces the model session with a fresh one that is told the last few minutes. Only called
+     * while nothing is in progress, so no reply or function result is lost with the old socket.
+     */
+    private fun roll(reason: String) {
+        val old = client ?: return
+        val carry = Rolling.carryover(_turns.value)
+        Log.i(TAG, "roll: $reason after ${(now() - sessionSince) / 1000}s, carried ${carry?.length ?: 0} chars")
+        rolling = true
+        responding = false
+        assistantOpen = false
+        old.close()
+        sessionSince = now()
+        lastActivity = now()
+        open(Rolling.instructions(baseInstructions, carry))
+    }
+
+    private fun startRollTimer() {
+        rollJob?.cancel()
+        rollJob = scope.launch {
+            while (isActive) {
+                delay(ROLL_CHECK_MS)
+                // A reply whose response.done never came (lost in a reconnect) stops counting after a minute.
+                val speaking = responding && now() - lastActivity < STALE_REPLY_MS
+                val busy = rolling || speaking || callsInFlight > 0 || pendingCalls.isNotEmpty()
+                if (_state.value == State.Live && Rolling.due(now(), sessionSince, lastActivity, busy)) {
+                    roll("quiet")
+                }
+            }
+        }
+    }
+
+    private fun now() = SystemClock.elapsedRealtime()
 
     /** A typed message instead of speech; answered out loud like a spoken one. */
     fun send(text: String) {
@@ -100,18 +170,20 @@ class VoiceSession(
     }
 
     // Listener callbacks arrive on OkHttp's thread; state is only touched on the main thread,
-    // and nothing from a session that was already stopped or failed is applied.
+    // and nothing from a session that was stopped, failed or rolled over ([client] is another) is applied.
 
-    override fun onOpen() {
-        Log.i(TAG, "socket open")
-    }
-
-    override fun onEvent(event: RealtimeProtocol.Event) {
+    private fun handle(source: RealtimeClient, event: RealtimeProtocol.Event) {
         scope.launch(Dispatchers.Main.immediate) {
-            if (client == null) return@launch
+            if (client !== source) return@launch
+            // Anything the server says about the conversation postpones a roll.
+            if (event !is RealtimeProtocol.Event.Ignored && event !is RealtimeProtocol.Event.SessionReady) lastActivity = now()
             when (event) {
+                // The fresh session of a roll: audio is already running, so only note the switch.
+                RealtimeProtocol.Event.SessionReady -> if (rolling) {
+                    rolling = false
+                    _turns.value = _turns.value + Turn(fromUser = false, text = Rolling.NOTE, tool = true)
                 // Live only once the server accepted our session settings; a rejected key never gets here.
-                RealtimeProtocol.Event.SessionReady -> if (_state.value == State.Connecting) {
+                } else if (_state.value == State.Connecting) {
                     // A device without a usable mic or speaker path throws here; end with the reason, not a crash.
                     runCatching {
                         _output.value = route?.start()
@@ -123,9 +195,18 @@ class VoiceSession(
                         return@launch
                     }
                     _state.value = State.Live
+                    sessionSince = now()
+                    lastActivity = now()
+                    startRollTimer()
                 }
-                is RealtimeProtocol.Event.AudioDelta -> audio.play(event.pcm)
-                is RealtimeProtocol.Event.AssistantText -> appendAssistant(event.delta)
+                is RealtimeProtocol.Event.AudioDelta -> {
+                    responding = true
+                    audio.play(event.pcm)
+                }
+                is RealtimeProtocol.Event.AssistantText -> {
+                    responding = true
+                    appendAssistant(event.delta)
+                }
                 is RealtimeProtocol.Event.UserText -> {
                     event.usage?.let { record(RealtimeProtocol.TRANSCRIBE_MODEL, it) }
                     assistantOpen = false
@@ -142,25 +223,29 @@ class VoiceSession(
                     Log.i(TAG, "tool ${event.name}")
                     assistantOpen = false
                     _turns.value = _turns.value + Turn(fromUser = false, text = host?.label(event.name, event.arguments) ?: event.name, tool = true)
-                    pendingCalls += event.callId to scope.async {
+                    callsInFlight++
+                    val result = scope.async {
                         if (host == null) "No functions are available."
                         else runCatching { host.call(event.name, event.arguments) }
                             .getOrElse { "Failed: ${it.message ?: it.javaClass.simpleName}" }
                     }
+                    pendingCalls += event.callId to result
                 }
                 // The model waits for function results; send them all, then ask it to go on.
                 is RealtimeProtocol.Event.ResponseDone -> {
                     event.usage?.let { record(model, it) }
                     assistantOpen = false
+                    responding = false
                     if (pendingCalls.isNotEmpty()) {
                         val calls = pendingCalls.toList()
                         pendingCalls.clear()
-                        val c = client
                         scope.launch {
                             val outputs = calls.map { (id, result) -> id to result.await() }
-                            if (c == null || client !== c) return@launch   // the session ended meanwhile
-                            for ((id, out) in outputs) c.sendFunctionOutput(id, out)
-                            c.requestResponse()
+                            callsInFlight = (callsInFlight - calls.size).coerceAtLeast(0)
+                            lastActivity = now()
+                            if (client !== source) return@launch   // the session ended meanwhile
+                            for ((id, out) in outputs) source.sendFunctionOutput(id, out)
+                            source.requestResponse()
                         }
                     }
                 }
@@ -174,11 +259,11 @@ class VoiceSession(
         }
     }
 
-    override fun onClosed(reason: String) {
+    private fun closed(source: RealtimeClient, reason: String) {
         Log.i(TAG, "closed: $reason")
         scope.launch(Dispatchers.Main.immediate) {
-            // stop() and fail() clear client first, so a close we asked for lands here with nothing to report.
-            if (client == null) return@launch
+            // stop(), fail() and roll() replace client first, so a close we asked for lands here with nothing to report.
+            if (client !== source) return@launch
             fail(reason)
         }
     }
@@ -193,6 +278,11 @@ class VoiceSession(
     }
 
     private fun release() {
+        rollJob?.cancel()
+        rollJob = null
+        rolling = false
+        responding = false
+        callsInFlight = 0
         audio.stopCapture()
         audio.stopPlayback()
         route?.stop()
@@ -222,6 +312,8 @@ class VoiceSession(
 
     companion object {
         private const val TAG = "WalkcodeVoice"
+        private const val ROLL_CHECK_MS = 5_000L
+        private const val STALE_REPLY_MS = 60_000L
         private const val INSTRUCTIONS =
             "You are the voice of one Walkcode workspace: a developer's coding-agent workspace on their own machines. " +
                 "Talk like a calm, competent colleague. Keep replies to one or two short sentences unless asked for detail. " +

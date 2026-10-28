@@ -336,3 +336,14 @@ old order until dragged). New items go last. Workspace positions are only compar
 restart, tap still opens a project, the drop does not open it, session reorder both ways
 (`adb shell input draganddrop`). **Not verified:** workspace reorder (same component; the emulator had one
 workspace) and the feel on the phone (haptic, auto-scroll is not implemented for long lists).
+
+## Rolling sessions (2026-10-27)
+
+A long walk is split into fresh Realtime sessions so the context stays short (DECISIONS.md, "Rolling sessions").
+- `voice/Rolling.kt` (policy + carry-over, pure) and `VoiceSession` (one listener per socket so a rolled
+  socket's late events are dropped; roll only when no reply, function call or roll is in progress and it has
+  been quiet 20 s, or 4 s once a session is twice over its interval). `RealtimeClient` holds back sends until
+  its settings went out (OkHttp queues earlier sends ahead of them). The transcript shows "Fresh session,
+  carrying on from the last few minutes" at each roll.
+
+**Verified:** JVM tests (`RollingTest`), debug APK builds. **Not verified:** a real rolled conversation on the phone.

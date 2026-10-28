@@ -25,6 +25,11 @@ class RealtimeClient(private val listener: Listener) {
         .pingInterval(20, TimeUnit.SECONDS)
         .build()
     private var socket: WebSocket? = null
+    /**
+     * Set once the session settings went out. OkHttp would queue anything sent earlier and deliver it
+     * ahead of them; a rolled session's microphone is already running while the new socket connects.
+     */
+    @Volatile private var ready = false
 
     fun connect(apiKey: String, model: String, voice: String, instructions: String, tools: List<JsonObject> = emptyList()) {
         val request = Request.Builder()
@@ -34,6 +39,7 @@ class RealtimeClient(private val listener: Listener) {
         socket = http.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 webSocket.send(RealtimeProtocol.sessionUpdate(voice, instructions, tools, model))
+                ready = true
                 listener.onOpen()
             }
 
@@ -57,27 +63,29 @@ class RealtimeClient(private val listener: Listener) {
         })
     }
 
-    /** Dropped silently while the socket is not open; the capture loop keeps running. */
+    /** Dropped silently while the socket is not ready; the capture loop keeps running. */
     fun sendAudio(pcm: ByteArray) {
-        socket?.send(RealtimeProtocol.appendAudio(pcm))
+        if (ready) socket?.send(RealtimeProtocol.appendAudio(pcm))
     }
 
     /** Answers one function call; after the last answer of a response, ask for the next with [requestResponse]. */
     fun sendFunctionOutput(callId: String, output: String) {
-        socket?.send(RealtimeProtocol.functionOutput(callId, output))
+        if (ready) socket?.send(RealtimeProtocol.functionOutput(callId, output))
     }
 
     fun requestResponse() {
-        socket?.send(RealtimeProtocol.responseCreate())
+        if (ready) socket?.send(RealtimeProtocol.responseCreate())
     }
 
     /** A typed message, then a request for the model to answer it. */
     fun sendText(text: String) {
+        if (!ready) return
         socket?.send(RealtimeProtocol.userText(text))
         socket?.send(RealtimeProtocol.responseCreate())
     }
 
     fun close() {
+        ready = false
         socket?.close(1000, "done")
         socket = null
     }

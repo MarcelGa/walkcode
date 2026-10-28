@@ -143,3 +143,11 @@ revisit. Each line is a decision, not an open question.
   "resume" pill is gone. "+ New session" is the only way to start an agent afresh.
 - Sessions created before ids existed resume through `claude --resume` without an id (Claude's
   picker). Custom presets are left as they are; add `{id}` to them by hand (or via config import).
+
+## Rolling sessions (2026-10-27)
+
+- Walk mode must hold **1-2 hour conversations without drift**. The model session under it is therefore
+  replaced at quiet moments (`voice/Rolling`, every 15 min). The new session's instructions carry the last
+  ~4000 characters of transcript; microphone, speaker, transcript and spend run on across the switch. Older
+  talk is dropped on purpose: the workspaces are re-read over SSH when they matter. This also caps OpenAI's
+  per-reply input cost (VOICE-COSTS.md, "Shorter context"), which the user asked for here.
