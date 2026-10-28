@@ -108,6 +108,11 @@
   .chat .tool{margin:4px 0;color:var(--mut);font-style:italic;font-size:12px}
   .typebox{display:flex;gap:8px;align-items:center;padding:8px 12px}
   .typebox .in{flex:1;border:1px solid var(--line);border-radius:8px;padding:9px 10px;color:#4a5765;font-size:12px}
+  .scrim{position:absolute;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:18px}
+  .dialog{background:#2a2d35;border-radius:22px;padding:18px 20px 10px;width:100%}
+  .dialog b{display:block;font-size:17px;font-weight:500;margin-bottom:10px}
+  .dialog p{margin:0;color:#c3c8d0;font-size:13px}
+  .dialog .acts{display:flex;justify-content:flex-end;gap:18px;padding:16px 4px 6px;color:var(--accent);font-weight:600}
   [data-tip]{cursor:help}
   /* One floating bubble for all tooltips, so phone frames (overflow:hidden) never clip it. */
   .tip-bubble{position:fixed;z-index:50;display:none;max-width:260px;background:#1f2a37;color:var(--fg);
@@ -116,11 +121,11 @@
 </style>
 </head>
 <body>
-  <h1>Walkcode — clickable mockup v6</h1>
+  <h1>Walkcode — clickable mockup v7</h1>
   <div class="sub">Projects (with walk mode, the voice assistant for all workspaces) → Workspaces → Sessions,
     Hosts (with the phone-key setup), Settings (alerts, backup) and its Voice screen (dictation, the assistant's
     model, voice and key, and what walk mode has cost), the terminal including
-    the cached screen while reconnecting, and the alerts. Matches the app as of 2026-10-26. Static; hover states only.
+    killing a session from it and the cached screen while reconnecting, and the alerts. Matches the app as of 2026-10-28. Static; hover states only.
     <strong>Hover or tap anything with a dotted underline or a question cursor to see what it is.</strong></div>
 
   <div class="stage">
@@ -221,7 +226,7 @@
       <figcaption class="cap" data-tip="Terminal: the live agent session, shown on the phone over SSH. You type into it like a normal terminal.">Terminal (live)</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
-        <div class="bar"><span class="mut" data-tip="Back to the workspace's sessions (the session keeps running)">← TollBff / Refactor auth</span><span class="act" data-tip="More actions for this session">⋮</span></div>
+        <div class="bar"><span class="mut" data-tip="Back to the workspace's sessions (the session keeps running)">← TollBff / Refactor auth</span><span class="pill hot" data-tip="Kill this session: stops the agent on the host and removes the session, after a confirm. Then the workspace's sessions open.">Kill</span></div>
         <div class="hdr"><div class="c">home-server · <span class="p">~/src/tollbff</span> · claude</div></div>
         <div class="wrap">
           <div class="term" data-tip="The agent's screen. Text here is what the session shows on the host.">
@@ -245,12 +250,43 @@
       </div>
     </figure>
 
+    <!-- Terminal, kill confirm -->
+    <figure class="phone">
+      <figcaption class="cap" data-tip="Kill from the terminal: discard a session without going back to the workspace. After Kill, the workspace's sessions open with this one gone.">Terminal (kill session)</figcaption>
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
+        <div class="bar"><span class="mut">← TollBff / Refactor auth</span><span class="pill hot">Kill</span></div>
+        <div class="hdr"><div class="c">home-server · <span class="p">~/src/tollbff</span> · claude</div></div>
+        <div class="wrap">
+          <div class="term">
+            <div><span class="p">$</span> claude</div>
+            <div>&nbsp;</div>
+            <div>&gt; refactor the auth module</div>
+            <div class="d">● Done. 4 files changed.</div>
+          </div>
+          <div class="scrim">
+            <div class="dialog" data-tip="Confirm, so a stray tap does not stop a running agent. If the host cannot be reached, only the local entry is removed.">
+              <b>Kill session?</b>
+              <p>The agent running in it will be stopped and the session removed.</p>
+              <div class="acts"><span>Cancel</span><span>Kill</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="walk"><div class="key">Dictate</div></div>
+        <div class="keys">
+          <div class="key">^C</div><div class="key">Esc</div><div class="key">Tab</div>
+          <div class="key">←</div><div class="key">↑</div><div class="key">↓</div>
+          <div class="key">→</div><div class="key">⏎</div>
+        </div>
+      </div>
+    </figure>
+
     <!-- Terminal, reconnecting with cached screen -->
     <figure class="phone">
       <figcaption class="cap" data-tip="Reconnecting: while the app reconnects to the host, the last saved screen of this session is shown read-only, with a banner, instead of a blank screen.">Terminal (reconnecting, cached screen)</figcaption>
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
-        <div class="bar"><span class="mut">← TollBff / Refactor auth</span><span class="act">⋮</span></div>
+        <div class="bar"><span class="mut">← TollBff / Refactor auth</span><span class="pill hot">Kill</span></div>
         <div class="hdr"><div class="c">home-server · <span class="p">~/src/tollbff</span> · claude</div></div>
         <div class="wrap">
           <div class="term cached" data-tip="Greyed out: the last saved screen, not live. Input is not sent until the connection is back.">

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
@@ -82,6 +83,7 @@ fun ColumnScope.TerminalScreen(
     sessionId: Long,
     resume: Boolean,
     onBack: () -> Unit,
+    onKilled: (workspaceId: Long) -> Unit,
 ) {
     val context = LocalContext.current
     val workspaces by repo.workspaces.collectAsState(emptyList())
@@ -100,6 +102,9 @@ fun ColumnScope.TerminalScreen(
     var alt by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
     var attachment by remember { mutableStateOf<Attachment?>(null) }
+    var confirmKill by remember { mutableStateOf(false) }
+    // Set once the kill starts: the ending link must not reconnect, which would relaunch the session.
+    var killing by remember { mutableStateOf(false) }
 
     // Last screen of this session from an earlier visit, shown while the reconnect runs.
     val screens = remember(context) { ScreenCache.of(context) }
@@ -181,6 +186,7 @@ fun ColumnScope.TerminalScreen(
         val s = session ?: return@LaunchedEffect
         val w = workspace ?: return@LaunchedEffect
         val h = host ?: return@LaunchedEffect
+        if (killing) return@LaunchedEffect
         state = TermState.Connecting("")
         // A reconnect replaces the dropped client; don't leave it open behind the new one.
         attachment?.let { service.close(it.client) }
@@ -213,7 +219,8 @@ fun ColumnScope.TerminalScreen(
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(state, foreground) {
+    LaunchedEffect(state, foreground, killing) {
+        if (killing) return@LaunchedEffect
         when (state) {
             TermState.Attached -> autoRetries = 0
             is TermState.Ended, is TermState.Failed -> {
@@ -240,7 +247,8 @@ fun ColumnScope.TerminalScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            controller.view.screenText()?.let { text ->
+            // A killed session's cache entry is already gone; don't write it back.
+            if (!killing) controller.view.screenText()?.let { text ->
                 kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch { screens.save(sessionId, text) }
             }
             controller.view.currentSession?.finishIfRunning()
@@ -248,7 +256,9 @@ fun ColumnScope.TerminalScreen(
         }
     }
 
-    TopBar(listOfNotNull(workspace?.name, session?.displayName()).joinToString(" / "), onBack = onBack)
+    TopBar(listOfNotNull(workspace?.name, session?.displayName()).joinToString(" / "), onBack = onBack) {
+        if (session != null && !killing) Pill("Kill", onClick = { confirmKill = true }, hot = true)
+    }
     Text(
         listOfNotNull(host?.name, workspace?.directory, preset?.name?.lowercase(), title).joinToString(" · "),
         color = WC.Muted, fontSize = 12.sp, maxLines = 1, fontFamily = FontFamily.Monospace,
@@ -257,7 +267,8 @@ fun ColumnScope.TerminalScreen(
 
     Box(Modifier.weight(1f).fillMaxWidth().background(androidx.compose.ui.graphics.Color(0xFF0A0E13))) {
         AndroidView(factory = { terminalView }, modifier = Modifier.fillMaxWidth().padding(2.dp))
-        when (val st = state) {
+        if (killing) Overlay("Killing session…", null, null)
+        else when (val st = state) {
             is TermState.Connecting -> {
                 val connecting = "Connecting" + if (st.detail.isNotEmpty()) " to ${st.detail}…" else "…"
                 val cached = snapshot
@@ -309,6 +320,32 @@ fun ColumnScope.TerminalScreen(
                 else ButtonDefaults.filledTonalButtonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF1B232E), contentColor = WC.Fg),
             ) { Text(key.label, fontSize = 13.sp) }
         }
+    }
+
+    if (confirmKill && session != null) {
+        AlertDialog(
+            onDismissRequest = { confirmKill = false },
+            title = { Text("Kill session?") },
+            text = { Text("The agent running in it will be stopped and the session removed.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmKill = false
+                    killing = true
+                    val s = session
+                    scope.launch {
+                        controller.view.currentSession?.finishIfRunning()
+                        attachment?.let { service.close(it.client) }
+                        attachment = null
+                        // Unreachable host: as on the workspace screen, the local entry still goes.
+                        if (host != null) runCatching { service.killSession(host, s) }
+                        screens.delete(s.id)
+                        repo.deleteSession(s)
+                        onKilled(s.workspaceId)
+                    }
+                }) { Text("Kill") }
+            },
+            dismissButton = { TextButton(onClick = { confirmKill = false }) { Text("Cancel") } },
+        )
     }
 }
 

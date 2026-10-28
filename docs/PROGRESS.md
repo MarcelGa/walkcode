@@ -353,3 +353,13 @@ A long walk is split into fresh Realtime sessions so the context stays short (DE
   carrying on from the last few minutes" at each roll.
 
 **Verified:** JVM tests (`RollingTest`), debug APK builds. **Not verified:** a real rolled conversation on the phone.
+
+## Kill a session from the terminal (2026-10-28)
+
+The terminal's top bar has a **Kill** pill: after a confirm it kills the multiplexer session on the host,
+deletes the cached screen and the session row, and opens the workspace's sessions (normally the screen
+underneath). Reconnect is switched off once the kill starts, or the dropped link would relaunch the session.
+An unreachable host only loses the local entry, as with ✕ on the workspace screen. Mockup v7 shows it.
+
+**Verified:** debug APK builds, JVM tests pass; on the emulator against the Docker host the session was gone
+from tmux afterwards, the workspace screen showed "No sessions yet", no crash. **Not verified:** on the phone.

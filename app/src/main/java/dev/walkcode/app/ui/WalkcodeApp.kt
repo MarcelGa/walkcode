@@ -120,7 +120,14 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
                         onDeleted = { pop(); pop() },
                     )
                     is Route.HostEditor -> HostEditorScreen(repo, r.id, onDone = ::pop)
-                    is Route.Terminal -> TerminalScreen(repo, service, monitor, settings, r.sessionId, r.resume, onBack = ::pop)
+                    is Route.Terminal -> TerminalScreen(
+                        repo, service, monitor, settings, r.sessionId, r.resume, onBack = ::pop,
+                        // Back to the session's workspace, which is normally the screen underneath.
+                        onKilled = { workspaceId ->
+                            pop()
+                            if (stack.last() != Route.Workspace(workspaceId)) push(Route.Workspace(workspaceId))
+                        },
+                    )
                 }
                 if (current.isTopLevel) BottomNav(current, ::selectTab)
             }
