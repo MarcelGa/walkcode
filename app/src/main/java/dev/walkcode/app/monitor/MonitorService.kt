@@ -67,10 +67,7 @@ class MonitorService : Service() {
 
     @SuppressLint("MissingPermission")
     private suspend fun notifyAlert(a: HostAlert) {
-        val text = when (a.kind) {
-            HostAlert.Kind.ATTENTION -> "Needs your attention"
-            HostAlert.Kind.QUIET -> "No output for ${a.idleSec}s — may be waiting for input"
-        }
+        val text = a.text()
         val (sessionId, title) = withContext(Dispatchers.IO) {
             val repo = WalkcodeRepository.get(this@MonitorService)
             val s = repo.sessionByName(a.session)
@@ -82,11 +79,16 @@ class MonitorService : Service() {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
+            // Claude Code rings again ~60 s after a prompt it already rang for: same text, no second buzz.
+            .setOnlyAlertOnce(lastAlertText.put(a.session, text) == text)
             .setAutoCancel(true)
             .setContentIntent(openSession(sessionId))
             .build()
         nm.notify(a.session.hashCode(), n)
     }
+
+    private val lastAlertText = HashMap<String, String>()
 
     /** One connection-status notification per host, shown only while it is down. */
     private fun onStatus(statuses: Map<Long, LinkStatus>) {

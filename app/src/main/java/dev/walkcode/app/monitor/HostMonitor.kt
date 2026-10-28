@@ -21,6 +21,9 @@ import java.io.Closeable
 interface PollLink : Closeable {
     val address: String
     fun run(onEvent: (PollEvent) -> Unit)
+
+    /** The visible screen of [session] over the same connection, or null if it cannot be read. */
+    suspend fun capture(session: String): String? = null
 }
 
 sealed interface LinkStatus {
@@ -39,8 +42,20 @@ data class HostAlert(
     val session: String,
     val kind: Kind,
     val idleSec: Long = 0,
+    /** What the screen showed when the alert fired; null if it could not be read. */
+    val reading: ScreenReading? = null,
 ) {
     enum class Kind { ATTENTION, QUIET }
+
+    /** Notification text: what the screen showed, else what triggered the alert. */
+    fun text(): String = when (reading?.state) {
+        ScreenReading.State.NEEDS_INPUT -> reading.line?.let { "Needs your input: $it" } ?: "Needs your input"
+        ScreenReading.State.DONE -> reading.line?.let { "Done: $it" } ?: "Done"
+        ScreenReading.State.WORKING, null -> when (kind) {
+            Kind.ATTENTION -> "Needs your attention"
+            Kind.QUIET -> "No output for ${idleSec}s — may be waiting for input"
+        }
+    }
 }
 
 /**
@@ -74,6 +89,10 @@ class HostMonitor(
     val activity: StateFlow<Map<String, SessionActivity>> = _activity
 
     @Volatile private var focusedSession: String? = null
+    @Volatile private var link: PollLink? = null
+
+    /** Reads [session]'s screen over the current link; null while disconnected. */
+    suspend fun capture(session: String): String? = link?.let { runCatching { it.capture(session) }.getOrNull() }
 
     /** The session currently on screen is "viewed": it never alerts and is never unread. */
     fun setFocused(session: String?) {
@@ -93,6 +112,7 @@ class HostMonitor(
                 link = open()
                 _status.value = LinkStatus.Connected(link.address)
                 failures = 0
+                this.link = link
                 pump(link)
                 reason = "connection closed"
             } catch (e: CancellationException) {
@@ -100,6 +120,7 @@ class HostMonitor(
             } catch (e: Exception) {
                 reason = e.message ?: e::class.java.simpleName
             } finally {
+                this.link = null
                 runCatching { link?.close() }
             }
             failures++

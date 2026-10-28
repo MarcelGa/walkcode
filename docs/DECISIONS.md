@@ -151,3 +151,8 @@ revisit. Each line is a decision, not an open question.
   ~4000 characters of transcript; microphone, speaker, transcript and spend run on across the switch. Older
   talk is dropped on purpose: the workspaces are re-read over SSH when they matter. This also caps OpenAI's
   per-reply input cost (VOICE-COSTS.md, "Shorter context"), which the user asked for here.
+
+## Alert wording (2026-10-27)
+
+- Alerts stay bell/quiet triggered and for watched sessions only; the screen is read **at alert time** to
+  word them as "Needs your input" or "Done". No agent hooks or files on the host are needed.

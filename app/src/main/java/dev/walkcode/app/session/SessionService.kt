@@ -1,6 +1,7 @@
 package dev.walkcode.app.session
 
 import dev.walkcode.app.data.Host
+import dev.walkcode.app.data.ShellKind
 import dev.walkcode.app.data.Session
 import dev.walkcode.app.data.Workspace
 import dev.walkcode.app.data.WalkcodeRepository
@@ -113,12 +114,16 @@ class SessionService(
     }
 
     /** Pane text of [session] including [history] lines of scrollback (null: the visible screen only), or null if the host refused. */
-    suspend fun capture(client: SSHClient, host: Host, session: Session, history: Int? = 300): String? {
-        val mux = MuxCommands(host.shell)
-        val full = exec(client, mux.capture(session.tmuxName, history))
+    suspend fun capture(client: SSHClient, host: Host, session: Session, history: Int? = 300): String? =
+        capture(client, host.shell, session.tmuxName, history)
+
+    suspend fun capture(client: SSHClient, shell: ShellKind, tmuxName: String, history: Int?): String? {
+        val mux = MuxCommands(shell)
+        val full = exec(client, mux.capture(tmuxName, history))
         if (full.status == 0) return full.output
         // Some multiplexer builds (psmux) may not take -S; the visible screen is still useful.
-        val visible = exec(client, mux.capture(session.tmuxName, null))
+        if (history == null) return null
+        val visible = exec(client, mux.capture(tmuxName, null))
         return if (visible.status == 0) visible.output else null
     }
 

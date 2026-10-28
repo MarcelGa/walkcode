@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import net.schmizz.sshj.SSHClient
 
 /**
@@ -130,7 +132,7 @@ class Monitor private constructor(private val context: Context) {
                 hostName = host.name,
                 open = { openLink(id) },
                 watched = { _watchedByHost.value?.get(id).orEmpty() },
-                onAlert = { _alerts.tryEmit(it) },
+                onAlert = { a -> scope.launch { emitAlert(id, a) } },
                 quietAfterSec = settings.quietAfterSec.value.toLong(),
                 quietEnabled = { settings.quietAlerts.value },
                 onTitle = { session, title -> scope.launch { repo.recordPaneTitle(session, title) } },
@@ -143,6 +145,22 @@ class Monitor private constructor(private val context: Context) {
             }
             monitors[id] = monitor to job
         }
+    }
+
+    /**
+     * Reads the screen before notifying so the alert can say whether the agent asks something or
+     * finished. A quiet alert on a screen that is still working is dropped (a long tool run, not
+     * a stop). Capped so a slow host delays the alert by seconds at most, never drops it.
+     */
+    private suspend fun emitAlert(hostId: Long, alert: HostAlert) {
+        val monitor = synchronized(this) { monitors[hostId]?.first }
+        val screen = monitor?.let { m ->
+            val read = scope.async { m.capture(alert.session) }
+            withTimeoutOrNull(CAPTURE_TIMEOUT_MS) { read.await() }.also { if (it == null) read.cancel() }
+        }
+        val reading = screen?.let(ScreenReader::read)
+        if (alert.kind == HostAlert.Kind.QUIET && reading?.state == ScreenReading.State.WORKING) return
+        _alerts.emit(alert.copy(reading = reading))
     }
 
     private val activityByHost = HashMap<Long, Map<String, SessionActivity>>()
@@ -161,10 +179,18 @@ class Monitor private constructor(private val context: Context) {
         val asset = if (platform == HostPlatform.WINDOWS) PollerCommand.WINDOWS_ASSET else PollerCommand.POSIX_ASSET
         val script = context.assets.open(asset).bufferedReader().use { it.readText() }
         val command = PollerCommand.build(platform, script, PollTiming())
-        return SshPollLink(connected.client, connected.address, HostPoller(connected.client, command))
+        return SshPollLink(connected.client, connected.address, host.shell, HostPoller(connected.client, command), sessions)
     }
 
-    private class SshPollLink(private val client: SSHClient, override val address: String, private val poller: HostPoller) : PollLink {
+    private class SshPollLink(
+        private val client: SSHClient,
+        override val address: String,
+        private val shell: ShellKind,
+        private val poller: HostPoller,
+        private val sessions: SessionService,
+    ) : PollLink {
+        override suspend fun capture(session: String): String? = sessions.capture(client, shell, session, history = null)
+
         override fun run(onEvent: (PollEvent) -> Unit) {
             poller.run(onEvent)
             // run() returns when the channel ends; an ended poller means the link is unusable.
@@ -178,6 +204,8 @@ class Monitor private constructor(private val context: Context) {
     }
 
     companion object {
+        private const val CAPTURE_TIMEOUT_MS = 4_000L
+
         @Volatile private var instance: Monitor? = null
 
         fun get(context: Context): Monitor =

@@ -363,3 +363,16 @@ An unreachable host only loses the local entry, as with ✕ on the workspace scr
 
 **Verified:** debug APK builds, JVM tests pass; on the emulator against the Docker host the session was gone
 from tmux afterwards, the workspace screen showed "No sessions yet", no crash. **Not verified:** on the phone.
+
+## Alerts say "needs input" or "done" (2026-10-27)
+
+When a watched session alerts (bell or quiet timer), `Monitor` reads its visible screen over the poller's
+SSH connection (`PollLink.capture`, capped at 4 s) and `monitor/ScreenReader` classifies it: a prompt
+(Claude Code / Copilot CLI numbered choices, "Do you want to…", opencode "Permission required", `(y/n)`)
+gives **"Needs your input: <question>"**; a finished turn gives **"Done: <last answer line>"**; a running
+turn ("esc to interrupt") drops a quiet alert and leaves a bell alert with the old text. If the screen
+cannot be read the old texts are used. A repeated alert with the same text (Claude Code's second bell
+~60 s after a prompt) updates the notification without a second buzz.
+**Verified:** `ScreenReaderTest` (JVM, 125 total green), debug APK builds.
+**Not verified:** real agent screens on a device (tune the patterns in `ScreenReader` from real captures),
+psmux `capture-pane` through the monitor.
