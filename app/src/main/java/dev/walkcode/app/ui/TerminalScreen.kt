@@ -82,6 +82,8 @@ fun ColumnScope.TerminalScreen(
     settings: AppSettings,
     sessionId: Long,
     resume: Boolean,
+    /** Changes when the link should be checked: the user asked for this session again. */
+    linkCheck: Int,
     onBack: () -> Unit,
     onKilled: (workspaceId: Long) -> Unit,
 ) {
@@ -123,8 +125,10 @@ fun ColumnScope.TerminalScreen(
     val controller = remember {
         TerminalController(context, terminalView, object : TerminalController.Listener {
             override fun onTitleChanged(title: String?) = bridge.onTitle(title)
-            override fun onFinished(session: TerminalSession) =
-                bridge.onFinished(session.exitReason ?: "session ended (exit ${session.exitStatus})")
+            override fun onFinished(session: TerminalSession) {
+                // A replaced link finishes late, possibly while its successor is up.
+                if (session === flags.attached) bridge.onFinished(session.exitReason ?: "session ended (exit ${session.exitStatus})")
+            }
             override fun onModifiersChanged(ctrl: Boolean, alt: Boolean) = bridge.onModifiers(ctrl, alt)
             override fun onScreenChanged() { flags.screenChanged = true }
         })
@@ -189,12 +193,16 @@ fun ColumnScope.TerminalScreen(
         if (killing) return@LaunchedEffect
         state = TermState.Connecting("")
         // A reconnect replaces the dropped client; don't leave it open behind the new one.
+        flags.attached = null
+        terminalView.currentSession?.finishIfRunning()
         attachment?.let { service.close(it.client) }
         attachment = null
         try {
             val a = service.launch(h, w, s, resume = resume, onAttempt = { addr -> state = TermState.Connecting(addr) })
             attachment = a
-            terminalView.attachSession(TerminalSession(SshTerminalTransport(a.client, a.command, a.pty), TRANSCRIPT_ROWS, controller))
+            val terminal = TerminalSession(SshTerminalTransport(a.client, a.command, a.pty), TRANSCRIPT_ROWS, controller)
+            flags.attached = terminal
+            terminalView.attachSession(terminal)
             state = TermState.Attached
             controller.showKeyboard()
         } catch (e: Exception) {
@@ -207,11 +215,12 @@ fun ColumnScope.TerminalScreen(
     // to the app starts a fresh round.
     var foreground by remember { mutableStateOf(true) }
     var autoRetries by remember { mutableIntStateOf(0) }
+    var resumes by remember { mutableIntStateOf(0) }
     DisposableEffect(context) {
         val lifecycle = (context as ComponentActivity).lifecycle
         val observer = LifecycleEventObserver { _, e ->
             when (e) {
-                Lifecycle.Event.ON_RESUME -> { autoRetries = 0; foreground = true }
+                Lifecycle.Event.ON_RESUME -> { autoRetries = 0; foreground = true; resumes++ }
                 Lifecycle.Event.ON_STOP -> foreground = false
                 else -> {}
             }
@@ -231,6 +240,15 @@ fun ColumnScope.TerminalScreen(
             }
             is TermState.Connecting -> {}
         }
+    }
+
+    // Keepalives take about a minute to give up on a dead link, too long to stare at an old screen
+    // when coming back to it. Asked directly, the host answers in moments; a healthy stream is
+    // current already, so only a dead one reattaches and the terminal is not disturbed otherwise.
+    LaunchedEffect(resumes, linkCheck) {
+        val a = attachment ?: return@LaunchedEffect
+        if (state != TermState.Attached || killing) return@LaunchedEffect
+        if (!service.isAlive(a.client) && attachment === a) attempt++
     }
 
     // The session on screen counts as viewed: no alerts for it, and leaving clears unread.
@@ -406,6 +424,9 @@ private const val SUBMIT_DELAY_MS = 250L
 private class ScreenFlags {
     /** Set on every emulator update; cleared when the screen is written to the cache. */
     @Volatile var screenChanged = false
+
+    /** The terminal session on the current link; null while a new link is being made. */
+    @Volatile var attached: TerminalSession? = null
 }
 
 private class Bridge {

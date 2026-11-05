@@ -16,8 +16,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -81,6 +83,7 @@ fun WalkcodeApp(
         if (anyWatched && !paused) MonitorService.start(context) else MonitorService.stop(context)
     }
 
+    var linkChecks by remember { mutableIntStateOf(0) }
     // Tapping a session's notification opens its terminal on top of its workspace.
     LaunchedEffect(pendingSession, allSessions) {
         val id = pendingSession ?: return@LaunchedEffect
@@ -88,6 +91,8 @@ fun WalkcodeApp(
         selectTab(Route.Projects)
         push(Route.Workspace(s.workspaceId))
         push(Route.Terminal(s.id, false))
+        // If it was open already the route did not change, so the screen must be told.
+        linkChecks++
         onSessionOpened()
     }
 
@@ -138,7 +143,7 @@ fun WalkcodeApp(
                     // the screen's view, connection and state all belong to one session.
                     is Route.Terminal -> key(r.sessionId) {
                         TerminalScreen(
-                            repo, service, monitor, settings, r.sessionId, r.resume, onBack = ::pop,
+                            repo, service, monitor, settings, r.sessionId, r.resume, linkChecks, onBack = ::pop,
                             // Back to the session's workspace, which is normally the screen underneath.
                             onKilled = { workspaceId ->
                                 pop()

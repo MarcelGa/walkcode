@@ -32,6 +32,8 @@ class HostConnector(private val deviceKey: DeviceKey) {
         host: Host,
         connectTimeoutMs: Int = 10_000,
         authTimeoutMs: Int = 15_000,
+        /** Seconds between keepalives, 0 for none. A stalled link then ends after about 5 intervals. */
+        keepAliveSec: Int = 0,
         onAttempt: (String) -> Unit = {},
     ): Connected = withContext(Dispatchers.IO) {
         val addresses = host.addresses
@@ -50,6 +52,8 @@ class HostConnector(private val deviceKey: DeviceKey) {
                 client.connectTimeout = connectTimeoutMs
                 client.timeout = authTimeoutMs
                 client.addHostKeyVerifier(verifier)
+                // Before connect: sshj only starts the keepalive thread if an interval is set by then.
+                client.connection.keepAlive.keepAliveInterval = keepAliveSec
                 client.connect(address, host.port)
                 client.authPublickey(host.username, deviceKey.keyProvider())
 

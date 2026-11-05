@@ -12,6 +12,9 @@ import kotlinx.coroutines.withContext
 import net.schmizz.sshj.SSHClient
 import java.util.concurrent.TimeUnit
 
+private const val TERMINAL_KEEPALIVE_SEC = 15
+private const val LINK_CHECK_SEC = 3L
+
 /** An SSH connection plus what is needed to attach a terminal to a session on it. */
 class Attachment(val client: SSHClient, val command: String, val pty: Boolean, val address: String)
 
@@ -25,10 +28,10 @@ class SessionService(
     private val connector: HostConnector = HostConnector(DeviceKey.getOrCreate()),
 ) {
 
-    suspend fun connect(host: Host, onAttempt: (String) -> Unit = {}): HostConnector.Connected {
+    suspend fun connect(host: Host, onAttempt: (String) -> Unit = {}, keepAliveSec: Int = 0): HostConnector.Connected {
         // Callers may hold a Host read before the last connection; the stored address is fresher.
         val lastAddress = repository.host(host.id)?.lastAddress ?: host.lastAddress
-        val connected = connector.connect(host.copy(lastAddress = lastAddress), onAttempt = onAttempt)
+        val connected = connector.connect(host.copy(lastAddress = lastAddress), keepAliveSec = keepAliveSec, onAttempt = onAttempt)
         if (connected.newlyTrusted) {
             repository.trustHostKey(host.id, connected.hostKey.algorithm, connected.hostKey.fingerprint)
         }
@@ -67,7 +70,9 @@ class SessionService(
         resume: Boolean,
         onAttempt: (String) -> Unit = {},
     ): Attachment {
-        val connected = connect(host, onAttempt)
+        // A terminal only ever reads, so without keepalives a dead link looks like a quiet session.
+        // Only terminals get them: the monitor has the poller's heartbeat, and runs all day.
+        val connected = connect(host, onAttempt, keepAliveSec = TERMINAL_KEEPALIVE_SEC)
         try {
             val mux = MuxCommands(host.shell)
             val exists = exec(connected.client, mux.hasSession(session.tmuxName)).status == 0
@@ -125,6 +130,19 @@ class SessionService(
         if (history == null) return null
         val visible = exec(client, mux.capture(tmuxName, null))
         return if (visible.status == 0) visible.output else null
+    }
+
+    /**
+     * Whether the host still answers on this connection. Sockets report nothing on a link that died
+     * quietly (phone slept, network changed), and a false alarm only costs a reattach. A refusal is
+     * an answer too: hosts need not know the request.
+     */
+    suspend fun isAlive(client: SSHClient): Boolean = withContext(Dispatchers.IO) {
+        if (!client.isConnected) return@withContext false
+        runCatching {
+            client.connection.sendGlobalRequest("keepalive@openssh.com", true, ByteArray(0))
+                .tryRetrieve(LINK_CHECK_SEC, TimeUnit.SECONDS) != null
+        }.getOrElse { client.isConnected }
     }
 
     fun close(client: SSHClient) {

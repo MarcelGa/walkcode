@@ -1,5 +1,6 @@
 package dev.walkcode.app.ssh
 
+import net.schmizz.keepalive.KeepAliveProvider
 import net.schmizz.sshj.Config
 import net.schmizz.sshj.DefaultConfig
 import net.schmizz.sshj.SSHClient
@@ -44,6 +45,9 @@ object Ssh {
     fun config(): Config {
         SshProviders.ensureInstalled()
         return DefaultConfig().apply {
+            // Answered by the server, so a stalled link is noticed; the default heartbeat only
+            // sends. It runs only on clients given an interval (HostConnector).
+            keepAliveProvider = KeepAliveProvider.KEEP_ALIVE
             keyAlgorithms = keyAlgorithms.map {
                 if (it.name == KeystoreEd25519Signature.keyAlgorithm().name) KeystoreEd25519Signature.keyAlgorithm() else it
             }

@@ -396,5 +396,15 @@ labels and headers, silent on Watch and on messages, a bell's sound belongs to i
 three tap paths including from another session's terminal (checked with `tmux list-clients`).
 **Not verified:** on the phone (Samsung's shade may draw groups differently, and whether it plays the sound),
 real agent screens, psmux.
+Open terminal on a dead link (found on the phone): the terminal only ever reads, so a link that died quietly
+(phone slept, network changed) kept the old screen with no error and no Reconnect button. Terminal connections
+now send SSH keepalives every 15 s (not the monitor's: it has the poller's heartbeat and runs all day), which
+end a stalled link in about a minute. Coming back to the app or tapping the open session's notification asks
+the host directly (`SessionService.isAlive`, 3 s) and reattaches only if it does not answer. A replaced link's
+late "finished" callback is ignored, or it would end its successor.
+**Verified:** `tools/spikes/terminal-relink.ps1` on the emulator + Docker host, which freezes only the terminal's
+sshd so nothing reports an error. Before the fix the update never arrived (40 s back in the app, 120 s left open,
+25 s after a tap); after it: 6 s, 79 s, 6 s. A healthy link keeps its client, and the new link stays up.
+**Not verified:** a real sleep or network change on the phone; psmux hosts.
 **Known stale, also on master:** `m3-monitor.ps1` looks for "Needs your attention" / "No output for" and `Seed / #1`,
 which the screen-read wording and auto titles replaced; its alert and open checks fail with or without this work.
