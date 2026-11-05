@@ -15,6 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -50,7 +51,12 @@ private sealed interface Route {
 private val Route.isTopLevel: Boolean get() = this == Route.Projects || this == Route.Hosts || this == Route.Settings
 
 @Composable
-fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) {
+fun WalkcodeApp(
+    pendingSession: Long? = null,
+    onSessionOpened: () -> Unit = {},
+    pendingWorkspace: Long? = null,
+    onWorkspaceOpened: () -> Unit = {},
+) {
     val context = LocalContext.current
     val repo = remember { WalkcodeRepository.get(context) }
     val service = remember { SessionService(repo) }
@@ -75,7 +81,7 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
         if (anyWatched && !paused) MonitorService.start(context) else MonitorService.stop(context)
     }
 
-    // Tapping an alert opens that session's terminal on top of its workspace.
+    // Tapping a session's notification opens its terminal on top of its workspace.
     LaunchedEffect(pendingSession, allSessions) {
         val id = pendingSession ?: return@LaunchedEffect
         val s = allSessions.firstOrNull { it.id == id } ?: return@LaunchedEffect
@@ -83,6 +89,14 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
         push(Route.Workspace(s.workspaceId))
         push(Route.Terminal(s.id, false))
         onSessionOpened()
+    }
+
+    // A collapsed group of several sessions has one tap target: open its workspace's list.
+    LaunchedEffect(pendingWorkspace) {
+        val id = pendingWorkspace ?: return@LaunchedEffect
+        selectTab(Route.Projects)
+        push(Route.Workspace(id))
+        onWorkspaceOpened()
     }
 
     WalkcodeTheme {
@@ -120,14 +134,18 @@ fun WalkcodeApp(pendingSession: Long? = null, onSessionOpened: () -> Unit = {}) 
                         onDeleted = { pop(); pop() },
                     )
                     is Route.HostEditor -> HostEditorScreen(repo, r.id, onDone = ::pop)
-                    is Route.Terminal -> TerminalScreen(
-                        repo, service, monitor, settings, r.sessionId, r.resume, onBack = ::pop,
-                        // Back to the session's workspace, which is normally the screen underneath.
-                        onKilled = { workspaceId ->
-                            pop()
-                            if (stack.last() != Route.Workspace(workspaceId)) push(Route.Workspace(workspaceId))
-                        },
-                    )
+                    // Keyed: a notification can open another session straight from a terminal, and
+                    // the screen's view, connection and state all belong to one session.
+                    is Route.Terminal -> key(r.sessionId) {
+                        TerminalScreen(
+                            repo, service, monitor, settings, r.sessionId, r.resume, onBack = ::pop,
+                            // Back to the session's workspace, which is normally the screen underneath.
+                            onKilled = { workspaceId ->
+                                pop()
+                                if (stack.last() != Route.Workspace(workspaceId)) push(Route.Workspace(workspaceId))
+                            },
+                        )
+                    }
                 }
                 if (current.isTopLevel) BottomNav(current, ::selectTab)
             }

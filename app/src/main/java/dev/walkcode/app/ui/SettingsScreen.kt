@@ -26,6 +26,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import dev.walkcode.app.data.AppSettings
 import dev.walkcode.app.data.WalkcodeRepository
 import dev.walkcode.app.monitor.Battery
+import dev.walkcode.app.monitor.MonitorService
 import dev.walkcode.app.data.UsageTotal
 import dev.walkcode.app.voice.RealtimeProtocol
 import dev.walkcode.app.voice.UsageFormat
@@ -45,10 +46,14 @@ fun ColumnScope.SettingsScreen(repo: WalkcodeRepository, settings: AppSettings, 
 
     // The exemption is granted in a system dialog, so re-read it whenever we come back.
     var unrestricted by remember { mutableStateOf(Battery.isUnrestricted(context)) }
+    var soundOn by remember { mutableStateOf(MonitorService.alertSoundOn(context)) }
     DisposableEffect(context) {
         val lifecycle = (context as ComponentActivity).lifecycle
         val observer = LifecycleEventObserver { _, e ->
-            if (e == Lifecycle.Event.ON_RESUME) unrestricted = Battery.isUnrestricted(context)
+            if (e == Lifecycle.Event.ON_RESUME) {
+                unrestricted = Battery.isUnrestricted(context)
+                soundOn = MonitorService.alertSoundOn(context)
+            }
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
@@ -58,6 +63,15 @@ fun ColumnScope.SettingsScreen(repo: WalkcodeRepository, settings: AppSettings, 
     // weight: take only the space above the tab bar, otherwise a long list pushes the bar off screen.
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
         SectionLabel("Alerts")
+        // Android owns the sound of a channel, so this row reports it and links to where it is set.
+        ListRow(
+            title = "Alert sound",
+            subtitle = if (soundOn) "On. Plays when a watched session needs you. Tap to change it."
+            else "Off in Android settings. Tap to turn it on.",
+            subtitleLines = 2,
+            onClick = { context.startActivity(MonitorService.alertSoundSettings(context)) },
+            trailing = { Text("›", color = WC.Muted, fontSize = 20.sp) },
+        )
         ListRow(
             title = "Quiet alerts",
             subtitle = "Notify when a watched session has unread output and goes silent",

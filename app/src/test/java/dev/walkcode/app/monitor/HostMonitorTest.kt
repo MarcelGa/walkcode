@@ -46,6 +46,25 @@ class HostMonitorTest {
     }
 
     @Test
+    fun alertsCarryWhenTheScreenLastChanged() = runTest {
+        val alerts = ArrayList<HostAlert>()
+        val link = FakeLink(
+            listOf(
+                pane(1000, "wc-a-1", bell = 0, hash = "x"), PollEvent.Ready(1000),
+                pane(1005, "wc-a-1", bell = 1, hash = "y", since = 1005),   // a prompt rings
+                pane(1065, "wc-a-1", bell = 2, hash = "y", since = 1005),   // rings again, same screen
+                pane(1100, "wc-a-1", bell = 3, hash = "z", since = 1100),   // another prompt
+            ),
+        )
+        val monitor = HostMonitor(1, "h", open = { link }, watched = { setOf("wc-a-1") }, onAlert = { alerts += it },
+            io = StandardTestDispatcher(testScheduler))
+        monitor.launchIn(backgroundScope)
+        runCurrent()
+        val bells = alerts.filter { it.kind == HostAlert.Kind.ATTENTION }
+        assertEquals(listOf(1005L, 1005L, 1100L), bells.map { it.screenChangedAt })
+    }
+
+    @Test
     fun focusedSessionDoesNotAlert() = runTest {
         val alerts = ArrayList<HostAlert>()
         val link = FakeLink(listOf(pane(1000, "wc-a-1", 0), PollEvent.Ready(1000), pane(1005, "wc-a-1", 1)))

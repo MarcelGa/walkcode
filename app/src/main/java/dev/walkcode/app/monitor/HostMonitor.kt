@@ -34,7 +34,7 @@ sealed interface LinkStatus {
 }
 
 /** What the UI shows for one session of a watched host. */
-data class SessionActivity(val active: Boolean, val unread: Boolean, val idleSec: Long)
+data class SessionActivity(val active: Boolean, val unread: Boolean, val idleSec: Long, val lastChange: Long = 0)
 
 data class HostAlert(
     val hostId: Long,
@@ -44,8 +44,18 @@ data class HostAlert(
     val idleSec: Long = 0,
     /** What the screen showed when the alert fired; null if it could not be read. */
     val reading: ScreenReading? = null,
+    /** When the session's screen last changed, in host seconds. */
+    val screenChangedAt: Long = 0,
 ) {
     enum class Kind { ATTENTION, QUIET }
+
+    /**
+     * Claude Code rings again ~60 s after a prompt it already rang for, and psmux counts each bell
+     * twice: same text on an unchanged screen stays silent. The text alone is not enough, because
+     * the next prompt can ask the same question and must make a sound.
+     */
+    fun isRepeatOf(previous: HostAlert?): Boolean =
+        previous != null && previous.text() == text() && previous.screenChangedAt == screenChangedAt
 
     /** Notification text: what the screen showed, else what triggered the alert. */
     fun text(): String = when (reading?.state) {
@@ -176,12 +186,15 @@ class HostMonitor(
         for (a in alerts) {
             when (a) {
                 is ActivityTracker.Alert.NeedsAttention ->
-                    if (a.session in w) onAlert(HostAlert(hostId, hostName, a.session, HostAlert.Kind.ATTENTION))
+                    if (a.session in w) onAlert(HostAlert(hostId, hostName, a.session, HostAlert.Kind.ATTENTION, screenChangedAt = screenChangedAt(a.session)))
                 is ActivityTracker.Alert.Quiet ->
-                    if (a.session in w) onAlert(HostAlert(hostId, hostName, a.session, HostAlert.Kind.QUIET, tracker.hostNow() - a.idleSince))
+                    if (a.session in w) onAlert(HostAlert(hostId, hostName, a.session, HostAlert.Kind.QUIET, tracker.hostNow() - a.idleSince, screenChangedAt = screenChangedAt(a.session)))
             }
         }
     }
+
+    private fun screenChangedAt(session: String): Long =
+        tracker.panes().filter { it.session == session }.maxOfOrNull { it.lastChange } ?: 0
 
     private fun publish() {
         val now = tracker.hostNow()
@@ -198,6 +211,7 @@ class HostMonitor(
                 active = panes.any { it.active },
                 unread = panes.any { it.unread },
                 idleSec = (now - (panes.maxOf { it.lastChange })).coerceAtLeast(0),
+                lastChange = panes.maxOf { it.lastChange },
             )
         }
     }

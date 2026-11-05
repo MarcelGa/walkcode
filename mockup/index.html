@@ -121,7 +121,7 @@
 </style>
 </head>
 <body>
-  <h1>Walkcode — clickable mockup v7</h1>
+  <h1>Walkcode — clickable mockup v8</h1>
   <div class="sub">Projects (with walk mode, the voice assistant for all workspaces) → Workspaces → Sessions,
     Hosts (with the phone-key setup), Settings (alerts, backup) and its Voice screen (dictation, the assistant's
     model, voice and key, and what walk mode has cost), the terminal including
@@ -365,6 +365,7 @@
         <div class="bar"><span>Settings</span><span></span></div>
         <div class="list">
           <div class="sect">Alerts</div>
+          <div class="row" data-tip="Says whether alerts make a sound. Android owns the sound, so tapping opens its settings for the Agent alerts channel, where it is picked or muted."><div class="t"><b>Alert sound</b><span>On. Plays when a watched session needs you. Tap to change it.</span></div><span class="mut">›</span></div>
           <div class="row" data-tip="When on, you get a notification when a watched session has unread output and then goes quiet"><div class="t"><b>Quiet alerts</b>
             <span>Notify when a watched session has unread output and goes silent</span></div><i class="sw on"></i></div>
           <div class="pad" style="padding:4px 14px 8px;display:flex;gap:6px;flex-wrap:wrap" data-tip="How long a session must be silent before it counts as quiet. Default 15 s. Highlighted: current value.">
@@ -454,10 +455,17 @@
       <div class="screen">
         <div class="status"><span>9:41</span><span>◗◗ ◗ ▮</span></div>
         <div class="pad">
-          <div class="notif" data-tip="Agent alert: a watched session went quiet and may be waiting for you. Tap to open it.">
-            <div class="top">Agent alerts</div>
-            <div class="app">Work · TollBff · Fix flaky test</div>
-            <div class="msg">No output for 15s — may be waiting for input</div>
+          <div class="notif" data-tip="One group per workspace, with one row per watched session. A row shows the session's label and last terminal message, updated silently. It makes a sound only when the session alerts. Tap a row to open that session.">
+            <div class="top">Work · TollBff</div>
+            <div class="app">Fix flaky test</div>
+            <div class="msg">Needs your input: Do you want to make this edit?</div>
+            <div class="app">Refactor parser</div>
+            <div class="msg">Working: Reading 3 files</div>
+          </div>
+          <div class="notif" data-tip="Another workspace, its own group. Tap the row to open that session.">
+            <div class="top">Home · Scripts</div>
+            <div class="app">#1</div>
+            <div class="msg">Done: Backup finished, all checks passed</div>
           </div>
           <div class="notif" data-tip="Connection alert: the link to the host dropped. The app retries on its own.">
             <div class="top">Connection status</div>

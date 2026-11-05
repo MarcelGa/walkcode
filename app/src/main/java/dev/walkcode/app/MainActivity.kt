@@ -15,8 +15,11 @@ import dev.walkcode.app.monitor.MonitorService
 import dev.walkcode.app.ui.WalkcodeApp
 
 class MainActivity : ComponentActivity() {
-    /** Session to open, set when the user taps an alert notification. */
+    /** Session to open, set when the user taps a session's notification. */
     private var pendingSession by mutableStateOf<Long?>(null)
+
+    /** Workspace to open, set when the user taps a collapsed group of several sessions. */
+    private var pendingWorkspace by mutableStateOf<Long?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,7 +29,12 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         handle(intent)
-        setContent { WalkcodeApp(pendingSession, onSessionOpened = { pendingSession = null }) }
+        setContent {
+            WalkcodeApp(
+                pendingSession, onSessionOpened = { pendingSession = null },
+                pendingWorkspace, onWorkspaceOpened = { pendingWorkspace = null },
+            )
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -39,5 +47,7 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(MonitorService.EXTRA_RESUME, false)) Monitor.get(this).resume()
         val id = intent.getLongExtra(MonitorService.EXTRA_SESSION_ID, -1L)
         if (id >= 0) pendingSession = id
+        val workspace = intent.getLongExtra(MonitorService.EXTRA_WORKSPACE_ID, -1L)
+        if (workspace >= 0) pendingWorkspace = workspace
     }
 }

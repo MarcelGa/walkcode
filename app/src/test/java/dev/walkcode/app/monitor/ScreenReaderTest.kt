@@ -46,7 +46,7 @@ class ScreenReaderTest {
 
     @Test fun running_turn_is_working() {
         val r = read("● Reading 3 files", "✻ Pondering… (12s · esc to interrupt)", "╭────╮", "│ >  │", "╰────╯")
-        assertEquals(ScreenReading(State.WORKING, null), r)
+        assertEquals(ScreenReading(State.WORKING, "Reading 3 files"), r)
     }
 
     @Test fun finished_turn_is_done_with_the_last_answer_line() {
@@ -59,6 +59,12 @@ class ScreenReaderTest {
             "  ? for shortcuts",
         )
         assertEquals(ScreenReading(State.DONE, "Fixed the off-by-one in Parser.kt; all 42 tests pass."), r)
+    }
+
+    @Test fun a_bare_shell_prompt_is_not_the_last_message() {
+        assertEquals("all tests passed", read("dev@testhost:~$ ./check", "all tests passed", "dev@testhost:~$")?.line)
+        assertEquals("all tests passed", read("all tests passed", "PS C:\\Users\\me>")?.line)
+        assertNull(read("dev@testhost:~$")?.line)
     }
 
     @Test fun answered_prompt_far_above_does_not_count() {

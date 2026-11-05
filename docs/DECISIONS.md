@@ -156,3 +156,13 @@ revisit. Each line is a decision, not an open question.
 
 - Alerts stay bell/quiet triggered and for watched sessions only; the screen is read **at alert time** to
   word them as "Needs your input" or "Done". No agent hooks or files on the host are needed.
+
+## Session notifications (2026-11-05)
+
+- Every watched session has its **own notification**, present for as long as it is watched: the label
+  as title, the last terminal message as text, **grouped by workspace**. Tapping one opens that session;
+  a collapsed group of several sessions opens the workspace's session list (Android gives it one tap target).
+- Only alerts make a **sound**; message updates are silent. A row that was swiped away returns on the
+  session's next message. The "two notification channels" decision stands: rows use the alert channel.
+- The sound is the alert channel's, which Android owns. Settings shows whether it is on and links to the
+  system screen for it; the app has no sound picker or switch of its own.

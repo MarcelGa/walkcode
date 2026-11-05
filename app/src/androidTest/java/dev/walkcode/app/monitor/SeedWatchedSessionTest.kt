@@ -25,4 +25,22 @@ class SeedWatchedSessionTest {
         val session = repo.createSession(wsId, watched = true)
         SessionService(repo).launch(repo.host(hostId)!!, repo.workspace(wsId)!!, session, resume = false).client.close()
     }
+
+    /** Three labelled watched sessions in two workspaces, for tools/spikes/session-notifications.ps1. */
+    @Test
+    fun seedTwoWorkspaces(): Unit = runBlocking<Unit> {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val repo = WalkcodeRepository.get(context)
+        val service = SessionService(repo)
+        val hostId = repo.addHost("docker", "dev", ShellKind.TMUX, lanHost = "10.0.2.2", port = 2222)
+        val projectId = repo.addProject("Work")
+        for ((workspace, labels) in listOf("Alpha" to listOf("build", "tests"), "Beta" to listOf("docs"))) {
+            val wsId = repo.addWorkspace(workspace, hostId, "/home/dev", projectId = projectId, agentPresetId = null)
+            for (label in labels) {
+                val session = repo.createSession(wsId, watched = true)
+                repo.renameSession(session.id, label)
+                service.launch(repo.host(hostId)!!, repo.workspace(wsId)!!, session, resume = false).client.close()
+            }
+        }
+    }
 }

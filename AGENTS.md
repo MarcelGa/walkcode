@@ -44,6 +44,7 @@ pwsh -File tools\spikes\m2-ui.ps1             # Compose UI end to end (Docker ho
 pwsh -File tools\spikes\m3-monitor.ps1        # background alerts, reconnect (~4 min, Docker host)
 pwsh -File tools\spikes\m3-timeout.ps1        # Android 15 dataSync time-limit pause and resume
 pwsh -File tools\spikes\m4-settings.ps1       # rename, settings, battery prompt
+pwsh -File tools\spikes\session-notifications.ps1 # per-session rows, groups, sound, tap opens session (needs emulator audio)
 pwsh -File tools\spikes\voice-talk.ps1        # walk mode: key, Projects toggle, typed question -> function -> spoken reply
 ```
 

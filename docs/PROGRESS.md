@@ -376,3 +376,25 @@ cannot be read the old texts are used. A repeated alert with the same text (Clau
 **Verified:** `ScreenReaderTest` (JVM, 125 total green), debug APK builds.
 **Not verified:** real agent screens on a device (tune the patterns in `ScreenReader` from real captures),
 psmux `capture-pane` through the monitor.
+
+## Session notifications (2026-11-05)
+
+Every watched session has its own notification (`monitor/SessionRows`, posted by `MonitorService`): label as
+title, last terminal message as text, one group per workspace with "Project · Workspace" as its header.
+- Last message: `monitor/ScreenRefresh`, every 10 s, reads only sessions whose screen changed (an SSH exec per
+  read); bare shell prompts do not count as a message. The alert's own wording stays until the screen changes.
+- Sound: rows stay on the alert channel. A message update is muted with `GROUP_ALERT_SUMMARY` + only-alert-once,
+  an alert is the same row posted with `GROUP_ALERT_ALL`. Fixed on the way: a repeat was detected by text alone,
+  so a new prompt with the same question stayed silent; now it also needs an unchanged screen
+  (`HostAlert.isRepeatOf`). Settings > Alert sound shows the channel's state and opens its system screen.
+- Tap: a row opens its session. A collapsed group has one tap target and Android does not say which line was hit,
+  so it opens the session if it holds one, else the workspace's session list. `TerminalScreen` is now keyed by
+  session: going straight from one terminal to another used to keep the old session's connection.
+
+**Verified:** JVM tests; `tools/spikes/session-notifications.ps1` on the emulator + Docker host: rows, groups,
+labels and headers, silent on Watch and on messages, a bell's sound belongs to its row, alert wording kept, the
+three tap paths including from another session's terminal (checked with `tmux list-clients`).
+**Not verified:** on the phone (Samsung's shade may draw groups differently, and whether it plays the sound),
+real agent screens, psmux.
+**Known stale, also on master:** `m3-monitor.ps1` looks for "Needs your attention" / "No output for" and `Seed / #1`,
+which the screen-read wording and auto titles replaced; its alert and open checks fail with or without this work.

@@ -97,8 +97,10 @@ for ($i = 0; $i -lt 30; $i++) {
     if ((Notifications) -match 'No output for') { $quietSec = [int]((Get-Date) - $t0).TotalSeconds; break }
     Start-Sleep 1
 }
-$titles = [regex]::Matches((Notifications), 'android\.title=String \(([^)]*)\)') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -like 'Work*' }
-$title = [bool]($titles | Where-Object { $_ -match 'Work.{1,6}Seed.{1,6}build' })
+$shade = Notifications
+$titles = [regex]::Matches($shade, 'android\.title=String \(([^)]*)\)') | ForEach-Object { $_.Groups[1].Value }
+# The row is titled with the label; the workspace is its group's header.
+$title = ($titles -contains 'build') -and ($shade -match 'android\.subText=String \(Work.{1,6}Seed\)')
 
 # Exemption granted -> Settings shows Unrestricted.
 & $adb shell "dumpsys deviceidle whitelist +dev.walkcode.app" | Out-Null

@@ -63,7 +63,9 @@ that is wasteful, and typing on a phone keyboard is miserable. Walkcode closes t
 
 ### Know when the agent needs you
 - Watch any session and get a notification when it **needs attention** (bell/permission
-  prompt), has **unread output**, or has been **quiet** for N seconds (configurable).
+  prompt), has **unread output**, or has been **quiet** for N seconds (configurable), with a sound.
+- Each watched session has its own notification with its label and last terminal message,
+  grouped by workspace. Tap it to open that session.
 - A background monitor keeps watching while the phone is in your pocket, with a clear "paused"
   notice if Android's foreground-service time limit stops it.
 

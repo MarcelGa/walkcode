@@ -17,6 +17,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -52,6 +53,10 @@ class Monitor private constructor(private val context: Context) {
 
     private val _alerts = MutableSharedFlow<HostAlert>(extraBufferCapacity = 32)
     val alerts: SharedFlow<HostAlert> = _alerts
+
+    /** Each watched session's last message by session name, for its notification row. */
+    private val _messages = MutableStateFlow<Map<String, String>>(emptyMap())
+    val messages: StateFlow<Map<String, String>> = _messages
 
     /** Set when the OS ended background monitoring (dataSync time limit); cleared by [resume]. */
     private val _paused = MutableStateFlow(false)
@@ -105,6 +110,7 @@ class Monitor private constructor(private val context: Context) {
         activityByHost.clear()
         _watchedByHost.value = null   // a restarted service must not read the previous run's map
         _activity.value = emptyMap()
+        _messages.value = emptyMap()
         _status.value = emptyMap()
         _paused.value = byOs
     }
@@ -141,6 +147,7 @@ class Monitor private constructor(private val context: Context) {
             val job = scope.launch {
                 launch { monitor.status.collect { s -> _status.update { it + (id to s) } } }
                 launch { monitor.activity.collect { a -> publishActivity(id, a) } }
+                launch { refreshMessages(id, monitor) }
                 monitor.launchIn(this).join()
             }
             monitors[id] = monitor to job
@@ -154,13 +161,33 @@ class Monitor private constructor(private val context: Context) {
      */
     private suspend fun emitAlert(hostId: Long, alert: HostAlert) {
         val monitor = synchronized(this) { monitors[hostId]?.first }
-        val screen = monitor?.let { m ->
-            val read = scope.async { m.capture(alert.session) }
-            withTimeoutOrNull(CAPTURE_TIMEOUT_MS) { read.await() }.also { if (it == null) read.cancel() }
-        }
+        val screen = monitor?.let { readScreen(it, alert.session) }
         val reading = screen?.let(ScreenReader::read)
         if (alert.kind == HostAlert.Kind.QUIET && reading?.state == ScreenReading.State.WORKING) return
-        _alerts.emit(alert.copy(reading = reading))
+        val read = alert.copy(reading = reading)
+        alertedScreens[alert.session] = alert.screenChangedAt
+        _messages.update { it + (alert.session to read.text()) }
+        _alerts.emit(read)
+    }
+
+    /** The screen each session's last alert described, whose wording a refresh must not overwrite. */
+    private val alertedScreens = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    private suspend fun readScreen(monitor: HostMonitor, session: String): String? {
+        val read = scope.async { monitor.capture(session) }
+        return withTimeoutOrNull(CAPTURE_TIMEOUT_MS) { read.await() }.also { if (it == null) read.cancel() }
+    }
+
+    /** Runs for as long as the host is monitored; a read fails harmlessly while its link is down. */
+    private suspend fun refreshMessages(hostId: Long, monitor: HostMonitor) {
+        val refresh = ScreenRefresh(capture = { readScreen(monitor, it) }) { session, reading ->
+            reading.message()?.let { message -> _messages.update { it + (session to message) } }
+        }
+        while (true) {
+            delay(MESSAGE_REFRESH_MS)
+            val changes = monitor.activity.value.mapValues { it.value.lastChange }.filter { (session, change) -> alertedScreens[session] != change }
+            refresh.pass(_watchedByHost.value?.get(hostId).orEmpty(), changes)
+        }
     }
 
     private val activityByHost = HashMap<Long, Map<String, SessionActivity>>()
@@ -205,6 +232,7 @@ class Monitor private constructor(private val context: Context) {
 
     companion object {
         private const val CAPTURE_TIMEOUT_MS = 4_000L
+        private const val MESSAGE_REFRESH_MS = 10_000L
 
         @Volatile private var instance: Monitor? = null
 

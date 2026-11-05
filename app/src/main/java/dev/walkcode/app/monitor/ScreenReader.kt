@@ -5,6 +5,17 @@ import dev.walkcode.app.walk.ResponseExtractor
 /** What an agent's visible screen says at the moment an alert fires. */
 data class ScreenReading(val state: State, val line: String?) {
     enum class State { NEEDS_INPUT, DONE, WORKING }
+
+    /**
+     * The session's last message for its notification row, between alerts. It does not say "Done":
+     * this runs on any screen change, and an agent without a known running-turn hint would read as
+     * finished in the middle of a turn. Null when the screen has nothing to show.
+     */
+    fun message(): String? = when (state) {
+        State.NEEDS_INPUT -> line?.let { "Needs your input: $it" } ?: "Needs your input"
+        State.WORKING -> line?.let { "Working: $it" } ?: "Working"
+        State.DONE -> line
+    }
 }
 
 /**
@@ -32,6 +43,9 @@ object ScreenReader {
     /** Shown by the agents only while a turn is running. */
     private val working = Regex("esc to interrupt|esc interrupt|ctrl\\+c to (interrupt|cancel)", RegexOption.IGNORE_CASE)
 
+    /** A bare shell prompt, `user@host:~$` or `PS C:\dir>`: the shell waiting, not its last message. */
+    private val shellPrompt = Regex("^\\S+@\\S+.*[$#%]$|^PS\\s.*>$")
+
     /** A numbered or arrow-marked choice: not the question itself. */
     private val choice = Regex("^[❯>›]?\\s*\\d+\\.\\s")
 
@@ -49,11 +63,11 @@ object ScreenReader {
             val question = tail.subList(0, hit + 1).lastOrNull { it.endsWith("?") && !choice.containsMatchIn(it) }
             return ScreenReading(ScreenReading.State.NEEDS_INPUT, shorten(question ?: tail[hit]))
         }
-        if (tail.any { working.containsMatchIn(it) }) return ScreenReading(ScreenReading.State.WORKING, null)
-
         val last = ResponseExtractor.screenTail(screen, TAIL).lineSequence()
-            .lastOrNull { !it.startsWith(">") && !it.startsWith("❯") && !it.startsWith("›") }
-        return ScreenReading(ScreenReading.State.DONE, last?.let(::shorten))
+            .lastOrNull { !it.startsWith(">") && !it.startsWith("❯") && !it.startsWith("›") && !shellPrompt.matches(it) }
+            ?.let(::shorten)
+        val state = if (tail.any { working.containsMatchIn(it) }) ScreenReading.State.WORKING else ScreenReading.State.DONE
+        return ScreenReading(state, last)
     }
 
     private fun shorten(line: String): String = if (line.length <= MAX_LINE) line else line.take(MAX_LINE - 1) + "…"
