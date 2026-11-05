@@ -42,6 +42,15 @@ class MuxCommands(private val shell: ShellKind) {
     fun capture(name: String, history: Int?): String =
         "$mux capture-pane -p -J -t $name" + if (history != null) " -S -$history" else ""
 
+    /** The pane's last [lines] lines of history and its screen, with colours, for the terminal to show. */
+    fun scrollback(name: String, lines: Int): String = "$mux capture-pane -p -e -J -S -$lines -t $name"
+
+    /** One line per pane, `1` when it is on the alternate screen (a full-screen program runs in it). */
+    fun alternateScreen(name: String): String = when (shell) {
+        ShellKind.TMUX -> "tmux list-panes -t $name -F '#{alternate_on}'"
+        ShellKind.PSMUX -> "psmux list-panes -t $name -F \"#{alternate_on}\""
+    }
+
     /** Creates a detached session in [directory] (80x24; the attach resizes it to the phone). */
     fun newSession(name: String, directory: String): String = when (shell) {
         ShellKind.TMUX ->

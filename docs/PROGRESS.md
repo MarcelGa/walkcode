@@ -408,3 +408,23 @@ sshd so nothing reports an error. Before the fix the update never arrived (40 s 
 **Not verified:** a real sleep or network change on the phone; psmux hosts.
 **Known stale, also on master:** `m3-monitor.ps1` looks for "Needs your attention" / "No output for" and `Seed / #1`,
 which the screen-read wording and auto titles replaced; its alert and open checks fail with or without this work.
+
+## Scrolling a session's history (2026-11-05)
+
+Found on the phone: long text could not be scrolled in tmux sessions and no scrollbar showed. tmux keeps the
+terminal on its alternate screen, so the view has no transcript, and a swipe became Up/Down keys that recalled old
+commands in the shell or agent. A swipe back now reads the pane's history over the terminal's SSH connection
+(`capture-pane -e -J`) and shows it in a local session in the same view, so dragging, flinging, colours, links, text
+selection and the scrollbar are the terminal's own. No tmux option changes and no copy mode.
+- It stays put while new output arrives. The way back: "Back to live", swiping to the bottom, Back, a tap, or typing
+  (the key goes to the session). The history is the moment of the swipe; it does not grow while being read.
+- Full-screen programs (`#{alternate_on}`: less, vim) have no pane history and keep getting arrow keys.
+- Sessions with mouse tracking (tmux `mouse on`) keep sending wheel events; that branch is unchanged.
+
+**Verified:** `PaneHistoryTest` (JVM); `tools/spikes/terminal-scroll.ps1` on the emulator + Docker host: the bug
+reproduced before the fix, and after it no arrow keys, history opens and stays, all ways back, typing arrives, less
+still scrolls. Installed on the S25 and accepted by the user there.
+**Known issue:** on the emulator the first swipe after opening a session often becomes a text selection (2 of 4 script
+runs, 4 of 4 right after a cold start; later swipes 10 of 10). The likely cause is a main-thread stall longer than the
+400 ms long-press timeout on a very slow emulator, not confirmed. Not seen reported on the phone.
+**Not verified:** psmux hosts, a slow link, how a real agent's screen looks scrolled back (no specific check was made).

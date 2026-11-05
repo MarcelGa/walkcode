@@ -66,6 +66,21 @@ public interface TerminalViewClient {
     void onEmulatorSet();
 
 
+    /*
+     * Walkcode addition. On the alternate screen without mouse tracking a drag would become arrow
+     * keys, which a multiplexer hands to whatever runs in the pane; these let the client take it.
+     */
+
+    /** A drag or fling step on the alternate screen, before arrow keys are sent. Return true to take it. */
+    default boolean onAlternateBufferScroll(MotionEvent event, int rowsDown) { return false; }
+
+    /** A fling is starting. Return true to take it; {@link TerminalView#startFling} can run it later. */
+    default boolean onFlingStart(MotionEvent event, float velocityY) { return false; }
+
+    /** The view moved through its own transcript; [topRow] is 0 at the bottom. */
+    default void onTranscriptScrolled(int topRow, int rowsDown) {}
+
+
     void logError(String tag, String message);
 
     void logWarn(String tag, String message);

@@ -196,36 +196,8 @@ public final class TerminalView extends View {
             @Override
             public boolean onFling(final MotionEvent e2, float velocityX, float velocityY) {
                 if (mEmulator == null) return true;
-                // Do not start scrolling until last fling has been taken care of:
-                if (!mScroller.isFinished()) return true;
-
-                final boolean mouseTrackingAtStartOfFling = mEmulator.isMouseTrackingActive();
-                float SCALE = 0.25f;
-                if (mouseTrackingAtStartOfFling) {
-                    mScroller.fling(0, 0, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.mRows / 2, mEmulator.mRows / 2);
-                } else {
-                    mScroller.fling(0, mTopRow, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.getScreen().getActiveTranscriptRows(), 0);
-                }
-
-                post(new Runnable() {
-                    private int mLastY = 0;
-
-                    @Override
-                    public void run() {
-                        if (mouseTrackingAtStartOfFling != mEmulator.isMouseTrackingActive()) {
-                            mScroller.abortAnimation();
-                            return;
-                        }
-                        if (mScroller.isFinished()) return;
-                        boolean more = mScroller.computeScrollOffset();
-                        int newY = mScroller.getCurrY();
-                        int diff = mouseTrackingAtStartOfFling ? (newY - mLastY) : (newY - mTopRow);
-                        doScroll(e2, diff);
-                        mLastY = newY;
-                        if (more) post(this);
-                    }
-                });
-
+                if (mClient.onFlingStart(e2, velocityY)) return true;
+                startFling(e2, velocityY);
                 return true;
             }
 
@@ -263,6 +235,39 @@ public final class TerminalView extends View {
 
 
 
+    /** Runs a fling over the current session. Walkcode: public so a held-back fling can run later. */
+    public void startFling(final MotionEvent e2, float velocityY) {
+        // Do not start scrolling until last fling has been taken care of:
+        if (mEmulator == null || !mScroller.isFinished()) return;
+
+        final boolean mouseTrackingAtStartOfFling = mEmulator.isMouseTrackingActive();
+        float SCALE = 0.25f;
+        if (mouseTrackingAtStartOfFling) {
+            mScroller.fling(0, 0, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.mRows / 2, mEmulator.mRows / 2);
+        } else {
+            mScroller.fling(0, mTopRow, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.getScreen().getActiveTranscriptRows(), 0);
+        }
+
+        post(new Runnable() {
+            private int mLastY = 0;
+
+            @Override
+            public void run() {
+                if (mouseTrackingAtStartOfFling != mEmulator.isMouseTrackingActive()) {
+                    mScroller.abortAnimation();
+                    return;
+                }
+                if (mScroller.isFinished()) return;
+                boolean more = mScroller.computeScrollOffset();
+                int newY = mScroller.getCurrY();
+                int diff = mouseTrackingAtStartOfFling ? (newY - mLastY) : (newY - mTopRow);
+                doScroll(e2, diff);
+                mLastY = newY;
+                if (more) post(this);
+            }
+        });
+    }
+
     /**
      * @param client The {@link TerminalViewClient} interface implementation to allow
      *                           for communication between {@link TerminalView} and its client.
@@ -290,6 +295,8 @@ public final class TerminalView extends View {
     public boolean attachSession(TerminalSession session) {
         if (session == mTermSession) return false;
 
+        // A fling in progress belongs to the session being replaced.
+        mScroller.forceFinished(true);
         mTermSession = session;
         mEmulator = null;
         mCombiningAccent = 0;
@@ -573,6 +580,10 @@ public final class TerminalView extends View {
 
     /** Perform a scroll, either from dragging the screen or by scrolling a mouse wheel. */
     void doScroll(MotionEvent event, int rowsDown) {
+        if (rowsDown == 0) return;
+        boolean transcript = !mEmulator.isMouseTrackingActive() && !mEmulator.isAlternateBufferActive();
+        if (!mEmulator.isMouseTrackingActive() && mEmulator.isAlternateBufferActive()
+            && mClient.onAlternateBufferScroll(event, rowsDown)) return;
         boolean up = rowsDown < 0;
         int amount = Math.abs(rowsDown);
         for (int i = 0; i < amount; i++) {
@@ -587,6 +598,7 @@ public final class TerminalView extends View {
                 if (!awakenScrollBars()) invalidate();
             }
         }
+        if (transcript) mClient.onTranscriptScrolled(mTopRow, rowsDown);
     }
 
     /** Overriding {@link View#onGenericMotionEvent(MotionEvent)}. */

@@ -40,6 +40,7 @@ import com.termux.view.TerminalView
 import android.Manifest
 import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
@@ -58,6 +59,8 @@ import dev.walkcode.app.session.Attachment
 import kotlinx.coroutines.launch
 import dev.walkcode.app.session.SessionService
 import dev.walkcode.app.terminal.ExtraKey
+import dev.walkcode.app.terminal.PaneHistory
+import dev.walkcode.app.terminal.PaneHistorySource
 import dev.walkcode.app.terminal.ScreenCache
 import dev.walkcode.app.terminal.SshTerminalTransport
 import dev.walkcode.app.terminal.TerminalController
@@ -121,6 +124,8 @@ fun ColumnScope.TerminalScreen(
     bridge.onModifiers = { c, a -> ctrl = c; alt = a }
     bridge.onTitle = { title = it }
     bridge.onFinished = { state = TermState.Ended(it) }
+    var readingHistory by remember { mutableStateOf(false) }
+    bridge.onScrollback = { readingHistory = it }
     val flags = remember { ScreenFlags() }
     val controller = remember {
         TerminalController(context, terminalView, object : TerminalController.Listener {
@@ -131,8 +136,27 @@ fun ColumnScope.TerminalScreen(
             }
             override fun onModifiersChanged(ctrl: Boolean, alt: Boolean) = bridge.onModifiers(ctrl, alt)
             override fun onScreenChanged() { flags.screenChanged = true }
+            override fun onScrollbackChanged(open: Boolean) = bridge.onScrollback(open)
         })
     }
+    // tmux keeps the terminal on the alternate screen, so the view itself has nothing to scroll
+    // and swipes would press arrow keys in the agent. The history lives in the pane.
+    controller.historySource = object : PaneHistorySource {
+        override suspend fun isFullScreen(): Boolean {
+            val a = attachment ?: return false
+            val h = host ?: return false
+            val s = session ?: return false
+            return service.isFullScreen(a.client, h, s)
+        }
+
+        override suspend fun history(): String? {
+            val a = attachment ?: return null
+            val h = host ?: return null
+            val s = session ?: return null
+            return service.scrollback(a.client, h, s, PaneHistory.ROWS)
+        }
+    }
+    BackHandler(enabled = readingHistory) { controller.closeScrollback() }
 
     // --- Dictation: speech typed into this session. Walk mode (the voice assistant) is app-wide,
     // toggled on the Projects screen, so nothing here reads output aloud. -----------------------
@@ -181,7 +205,7 @@ fun ColumnScope.TerminalScreen(
             delay(SNAPSHOT_MS)
             if (!flags.screenChanged) continue
             flags.screenChanged = false
-            val text = terminalView.screenText() ?: continue
+            val text = controller.screenText() ?: continue
             withContext(Dispatchers.IO) { screens.save(id, text) }
         }
     }
@@ -194,6 +218,7 @@ fun ColumnScope.TerminalScreen(
         state = TermState.Connecting("")
         // A reconnect replaces the dropped client; don't leave it open behind the new one.
         flags.attached = null
+        controller.closeScrollback()
         terminalView.currentSession?.finishIfRunning()
         attachment?.let { service.close(it.client) }
         attachment = null
@@ -265,8 +290,9 @@ fun ColumnScope.TerminalScreen(
 
     DisposableEffect(Unit) {
         onDispose {
+            controller.closeScrollback()
             // A killed session's cache entry is already gone; don't write it back.
-            if (!killing) controller.view.screenText()?.let { text ->
+            if (!killing) controller.screenText()?.let { text ->
                 kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch { screens.save(sessionId, text) }
             }
             controller.view.currentSession?.finishIfRunning()
@@ -303,7 +329,11 @@ fun ColumnScope.TerminalScreen(
             }
             is TermState.Failed -> Stalled(st.reason, snapshot, "Retry") { attempt++ }
             is TermState.Ended -> Stalled(st.reason, snapshot, "Reconnect") { attempt++ }
-            TermState.Attached -> {}
+            TermState.Attached -> if (readingHistory) {
+                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 10.dp)) {
+                    Pill("Back to live", onClick = { controller.closeScrollback() })
+                }
+            }
         }
     }
     partial?.let {
@@ -351,6 +381,7 @@ fun ColumnScope.TerminalScreen(
                     killing = true
                     val s = session
                     scope.launch {
+                        controller.closeScrollback()
                         controller.view.currentSession?.finishIfRunning()
                         attachment?.let { service.close(it.client) }
                         attachment = null
@@ -399,9 +430,9 @@ private fun CachedScreen(text: String) {
     }
 }
 
-/** Visible screen plus scrollback as plain text; null until the emulator exists. */
-private fun TerminalView.screenText(): String? =
-    currentSession?.emulator?.screen?.transcriptTextWithFullLinesJoined
+/** The live session's screen plus scrollback as plain text; null until the emulator exists. */
+private fun TerminalController.screenText(): String? =
+    liveSession?.emulator?.screen?.transcriptTextWithFullLinesJoined
 
 @Composable
 private fun Overlay(message: String, action: String?, onAction: (() -> Unit)?) {
@@ -433,4 +464,5 @@ private class Bridge {
     var onModifiers: (Boolean, Boolean) -> Unit = { _, _ -> }
     var onTitle: (String?) -> Unit = {}
     var onFinished: (String) -> Unit = {}
+    var onScrollback: (Boolean) -> Unit = {}
 }

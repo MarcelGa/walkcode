@@ -132,6 +132,18 @@ class SessionService(
         return if (visible.status == 0) visible.output else null
     }
 
+    /** The pane history the terminal scrolls through, or null if the host refused. */
+    suspend fun scrollback(client: SSHClient, host: Host, session: Session, lines: Int): String? {
+        val result = exec(client, MuxCommands(host.shell).scrollback(session.tmuxName, lines))
+        return if (result.status == 0) result.output else null
+    }
+
+    /** Whether a full-screen program runs in the session; those panes keep no history of their own. */
+    suspend fun isFullScreen(client: SSHClient, host: Host, session: Session): Boolean {
+        val result = exec(client, MuxCommands(host.shell).alternateScreen(session.tmuxName))
+        return result.status == 0 && result.output.lineSequence().any { it.trim() == "1" }
+    }
+
     /**
      * Whether the host still answers on this connection. Sockets report nothing on a link that died
      * quietly (phone slept, network changed), and a false alarm only costs a reattach. A refusal is

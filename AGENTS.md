@@ -46,6 +46,7 @@ pwsh -File tools\spikes\m3-timeout.ps1        # Android 15 dataSync time-limit p
 pwsh -File tools\spikes\m4-settings.ps1       # rename, settings, battery prompt
 pwsh -File tools\spikes\session-notifications.ps1 # per-session rows, groups, sound, tap opens session (needs emulator audio)
 pwsh -File tools\spikes\terminal-relink.ps1   # open terminal recovers from a silently dead link (~4 min, Docker host)
+pwsh -File tools\spikes\terminal-scroll.ps1   # swipes read the pane's history, not arrow keys (Docker host)
 pwsh -File tools\spikes\voice-talk.ps1        # walk mode: key, Projects toggle, typed question -> function -> spoken reply
 ```
 
@@ -162,6 +163,9 @@ Use `<placeholders>` in anything you commit.
   Bump the version and add a migration for any entity change.
 - **`MonitorService` must not read a stale `Monitor.watchedByHost`**: it is `null` until computed
   and reset on `stop()`; an empty map means "nothing watched" and stops the service.
+- **tmux keeps the terminal on the alternate screen**, so `TerminalView` has no transcript and turns a drag
+  into arrow keys for the agent. Swipes load the pane's history into a local session in the same view
+  (`TerminalController`, `terminal/PaneHistory`); `liveSession` is the one on the link, not `view.currentSession`.
 - **Tooling gotchas (Windows dev box):**
   - Git Bash rewrites `/sdcard/...` paths passed to `adb`; run adb from PowerShell.
   - `sed` in Git Bash eats backslashes and `&`; use the Edit tool for anything with escapes.
