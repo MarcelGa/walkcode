@@ -428,3 +428,7 @@ still scrolls. Installed on the S25 and accepted by the user there.
 runs, 4 of 4 right after a cold start; later swipes 10 of 10). The likely cause is a main-thread stall longer than the
 400 ms long-press timeout on a very slow emulator, not confirmed. Not seen reported on the phone.
 **Not verified:** psmux hosts, a slow link, how a real agent's screen looks scrolled back (no specific check was made).
+Scrolling checked on the phone by the user (2026-11-05: "looks good").
+**Known issue:** on the emulator the first swipe after opening a session can become a text selection instead of
+scrolling (2 of 4 script runs, and all 4 completed first-touch runs of a stopped experiment; after a tap, swipes
+opened history 10 of 10). Suspected, not proven: a main-thread stall outlasts the 400 ms long-press timeout.
